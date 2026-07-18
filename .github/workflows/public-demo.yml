@@ -2,6 +2,9 @@ name: AgentReceipt public demo
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/public-demo.yml"
+      - "demo/**"
 
 permissions:
   contents: read

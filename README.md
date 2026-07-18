@@ -44,7 +44,7 @@ The `codex` command requires a Git repository with at least one commit and a cle
 The default sandbox is read-only:
 
 ```bash
-agentreceipt codex \
+node packages/cli/dist/src/bin.js codex \
   --title "Inspect the project" \
   --prompt "Run one harmless project inspection and summarize the result." \
   --verify "pnpm test"
@@ -53,7 +53,7 @@ agentreceipt codex \
 To allow edits, explicitly use the workspace-write sandbox:
 
 ```bash
-agentreceipt codex \
+node packages/cli/dist/src/bin.js codex \
   --title "Add a health check" \
   --prompt "Add a small health-check endpoint and cover it with tests." \
   --sandbox workspace-write \
@@ -65,8 +65,8 @@ The prompt is passed to Codex over standard input and is never written to the re
 After capture:
 
 ```bash
-agentreceipt inspect
-agentreceipt inspect --json
+node packages/cli/dist/src/bin.js inspect
+node packages/cli/dist/src/bin.js inspect --json
 ```
 
 ### What capture keeps
@@ -145,10 +145,10 @@ Complete-for-declared-surface receipts pass the completeness check. Partial rece
 The simulator remains available for schema and interface development:
 
 ```bash
-agentreceipt start --title "Add a demo endpoint"
-agentreceipt inspect
-agentreceipt finish --file src/demo.ts --tests 12
-agentreceipt inspect
+node packages/cli/dist/src/bin.js start --title "Add a demo endpoint"
+node packages/cli/dist/src/bin.js inspect
+node packages/cli/dist/src/bin.js finish --file src/demo.ts --tests 12
+node packages/cli/dist/src/bin.js inspect
 ```
 
 Every simulated receipt is labeled `SIMULATED RECEIPT — NOT AGENT OBSERVATION`.
