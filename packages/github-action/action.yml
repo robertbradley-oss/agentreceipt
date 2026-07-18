@@ -1,0 +1,24 @@
+name: AgentReceipt validation
+description: Validate an AgentReceipt without exposing its captured content.
+author: AgentReceipt
+
+inputs:
+  receipt-path:
+    description: Workspace-relative path to receipt.json.
+    required: true
+  allow-partial:
+    description: Accept a partial capture with a warning. Failed captures are never accepted.
+    required: false
+    default: "false"
+
+outputs:
+  result:
+    description: pass or fail
+
+runs:
+  using: node20
+  main: bundle/index.js
+
+branding:
+  icon: shield
+  color: blue

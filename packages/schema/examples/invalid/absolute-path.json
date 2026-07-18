@@ -1,0 +1,55 @@
+{
+  "schema_version": "0.1",
+  "receipt_id": "4300f129-1382-46f0-a41a-b099eb72e309",
+  "created_at": "2026-07-17T22:00:09Z",
+  "task": {
+    "title": "Unsafe path fixture",
+    "description": "This fixture must fail because it contains an absolute path.",
+    "source": "user"
+  },
+  "session": {
+    "id": "1f7f277c-796d-4833-946b-08270bdf8997",
+    "started_at": "2026-07-17T21:58:00Z",
+    "ended_at": "2026-07-17T22:00:09Z",
+    "status": "completed"
+  },
+  "agent": {"name": "Codex"},
+  "repository": {
+    "provider": "github",
+    "owner": "example",
+    "name": "unsafe",
+    "branch": "fixture",
+    "head_sha": "2222222222222222222222222222222222222222"
+  },
+  "capture": {
+    "adapter": "agentreceipt-codex",
+    "source": "direct_observation",
+    "capabilities": ["files"]
+  },
+  "privacy": {
+    "capture_level": "metadata",
+    "raw_content_included": false,
+    "redactions": []
+  },
+  "events": [
+    {
+      "id": "evt_unsafepath",
+      "sequence": 0,
+      "timestamp": "2026-07-17T21:59:00Z",
+      "type": "file",
+      "outcome": "succeeded",
+      "summary": "Inspected a file.",
+      "evidence_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "details": {
+        "file_path": "C:/Users/example/private.ts",
+        "file_action": "read"
+      }
+    }
+  ],
+  "files": [],
+  "verification": {
+    "status": "not_run",
+    "tests": {"passed": 0, "failed": 0, "skipped": 0},
+    "checks": []
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "fixture_version": 1,
+  "generated_at": "2026-07-18T03:32:00Z",
+  "scenario": "A sanitized draft receipt is committed with a harmless change, then finalized as a separate post-checkout artifact.",
+  "repository": {
+    "identity": "fixture-owner/fixture-repository",
+    "review_base_sha": "a1debe0492c7be67c4286856312ca489e5b1047f",
+    "capture_start_sha": "d9c79a806386f65ca663567657a56e9a4264c200",
+    "capture_end_sha": "d9c79a806386f65ca663567657a56e9a4264c200",
+    "result_head_sha": "a7034eadbf649dabd942a41e669ddcb1cb8570ed",
+    "in_commit_rewrite_sha": "f55d62815b5946a9f7ab2d4195b82ddba1943da2",
+    "review_base_is_ancestor_of_result": true,
+    "capture_start_is_ancestor_of_result": true,
+    "capture_diff_paths": [
+      "change.txt",
+      "draft-receipt.json"
+    ],
+    "review_diff_paths": [
+      "change.txt",
+      "draft-receipt.json",
+      "existing-feature.txt"
+    ]
+  },
+  "receipt": {
+    "draft_content_digest": "sha256:b14b965564e7214136ea814868b9d6fbf57c7016b86407cc117caa4d0f82a201",
+    "finalized_content_digest": "sha256:5545312418755ef097e246f7959708381e41cfd446b1600fce9a7388d7ff0de8",
+    "finalization_transition": [
+      "repository.base_sha",
+      "repository.head_sha",
+      "integrity.content_digest"
+    ]
+  },
+  "checks": {
+    "preserving_draft_base_fails_review_base_binding": true,
+    "workspace_local_untracked_finalized_artifact_passes_action_validation": true,
+    "finalized_output_is_ignored": true,
+    "finalized_output_is_untracked": true,
+    "tampering_after_digest_is_rejected": true,
+    "writing_finalized_receipt_into_bound_commit_changes_sha": true,
+    "in_commit_receipt_fails_action_binding": true
+  },
+  "privacy": {
+    "source_content_recorded": false,
+    "command_output_recorded": false,
+    "absolute_paths_recorded": false,
+    "credentials_recorded": false,
+    "fixture_identity_is_synthetic": true
+  }
+}

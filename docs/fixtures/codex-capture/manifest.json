@@ -1,0 +1,31 @@
+{
+  "fixture": "exec-jsonl-safe-marker.jsonl",
+  "captured_on": "2026-07-17",
+  "source": "codex exec --json",
+  "codex_cli_version": "0.145.0-alpha.18",
+  "session_mode": "ephemeral",
+  "sandbox_mode": "read-only",
+  "approval_policy": "never",
+  "scenario": "One harmless shell command printed a fixed marker, followed by a brief confirmation.",
+  "expected_behavior": {
+    "shell_command_count": 1,
+    "file_reads": 0,
+    "file_writes": 0,
+    "network_requests_requested": 0
+  },
+  "sanitization": {
+    "raw_persisted": false,
+    "thread_ids": "redacted",
+    "item_ids": "redacted",
+    "prompt_and_messages": "discarded",
+    "reasoning": "discarded",
+    "commands": "redacted",
+    "command_output": "discarded",
+    "personal_paths": "not persisted"
+  },
+  "notes": [
+    "The fixture preserves event shape and non-sensitive status fields only.",
+    "Unparsed diagnostic lines were discarded rather than persisted.",
+    "No timestamp, duration, model identifier, Git binding, or semantic test result was present in the captured JSONL."
+  ]
+}

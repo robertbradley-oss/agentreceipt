@@ -1,0 +1,22 @@
+{
+  "name": "@agentreceipt/github-action",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local GitHub Action for validating AgentReceipt files.",
+  "scripts": {
+    "build:ts": "tsc -p tsconfig.json",
+    "package": "ncc build dist/src/index.js -o bundle --minify --source-map",
+    "build": "pnpm run build:ts && pnpm run package",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm run build:ts && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@agentreceipt/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@vercel/ncc": "^0.38.4"
+  }
+}

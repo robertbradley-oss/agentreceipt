@@ -1,0 +1,577 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentreceipt.dev/schemas/receipt.v0.1.schema.json",
+  "title": "AgentReceipt v0.1",
+  "description": "A privacy-first record of observable work performed by an AI coding agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "created_at",
+    "task",
+    "session",
+    "agent",
+    "repository",
+    "capture",
+    "privacy",
+    "events",
+    "files",
+    "verification"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "task": {
+      "$ref": "#/$defs/task"
+    },
+    "session": {
+      "$ref": "#/$defs/session"
+    },
+    "agent": {
+      "$ref": "#/$defs/agent"
+    },
+    "repository": {
+      "$ref": "#/$defs/repository"
+    },
+    "capture": {
+      "$ref": "#/$defs/capture"
+    },
+    "privacy": {
+      "$ref": "#/$defs/privacy"
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileSummary"
+      }
+    },
+    "verification": {
+      "$ref": "#/$defs/verification"
+    },
+    "integrity": {
+      "$ref": "#/$defs/integrity"
+    },
+    "attestation": {
+      "$ref": "#/$defs/attestation"
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Namespaced experimental fields. Keys should use reverse-DNS notation.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!~)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "description", "source"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "source": {
+          "type": "string",
+          "enum": ["user", "issue", "pull_request", "automation"]
+        },
+        "source_reference": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "started_at", "ended_at", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "started_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "ended_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "failed", "cancelled"]
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 100
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "owner", "name", "branch", "head_sha"],
+      "properties": {
+        "provider": {
+          "const": "github"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "base_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40,64}$"
+        },
+        "head_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40,64}$"
+        }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter",
+        "source",
+        "surface",
+        "status",
+        "capabilities",
+        "observed_capabilities",
+        "unavailable_capabilities",
+        "record_counts",
+        "terminal_event_received"
+      ],
+      "properties": {
+        "adapter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "adapter_version": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "source": {
+          "type": "string",
+          "enum": ["direct_observation", "agent_export", "imported_log", "mixed", "simulated"]
+        },
+        "surface": {
+          "type": "string",
+          "enum": ["simulator", "codex_exec_jsonl"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["complete_for_declared_surface", "partial", "failed"]
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["lifecycle", "tools", "commands", "files", "tests", "git", "usage"]
+          }
+        },
+        "observed_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["lifecycle", "tools", "commands", "files", "tests", "git", "usage"]
+          }
+        },
+        "unavailable_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "record_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parsed", "discarded_sensitive", "unknown", "malformed"],
+          "properties": {
+            "parsed": {"type": "integer", "minimum": 0},
+            "discarded_sensitive": {"type": "integer", "minimum": 0},
+            "unknown": {"type": "integer", "minimum": 0},
+            "malformed": {"type": "integer", "minimum": 0}
+          }
+        },
+        "terminal_event_received": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capture_level", "raw_content_included", "redactions"],
+      "properties": {
+        "capture_level": {
+          "const": "metadata"
+        },
+        "raw_content_included": {
+          "const": false
+        },
+        "redactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/redaction"
+          }
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "count"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "credential",
+            "personal_data",
+            "absolute_path",
+            "command_argument",
+            "source_content",
+            "prompt",
+            "message",
+            "reasoning",
+            "command",
+            "command_output",
+            "identifier",
+            "tool_argument",
+            "other"
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sequence", "timestamp", "type", "outcome", "summary", "evidence_digest", "details"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^evt_[a-zA-Z0-9_-]{6,64}$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["session", "tool", "command", "file", "test", "git"]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["started", "succeeded", "failed", "skipped", "info"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "details": {
+          "$ref": "#/$defs/eventDetails"
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "session"}}},
+          "then": {"properties": {"details": {"type": "object", "required": ["phase"]}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "tool"}}},
+          "then": {"properties": {"details": {"type": "object", "required": ["tool_name"]}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "command"}}},
+          "then": {"properties": {"details": {"type": "object", "required": ["command"]}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "file"}}},
+          "then": {"properties": {"details": {"type": "object", "required": ["file_path", "file_action"]}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "test"}}},
+          "then": {"properties": {"details": {"type": "object", "required": ["test_framework", "passed", "failed", "skipped"]}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "git"}}},
+          "then": {"properties": {"details": {"type": "object", "required": ["git_action"]}}}
+        }
+      ]
+    },
+    "eventDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": ["start", "finish"]
+        },
+        "tool_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "file_path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "file_action": {
+          "type": "string",
+          "enum": ["read", "created", "modified", "deleted", "renamed"]
+        },
+        "test_framework": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "git_action": {
+          "type": "string",
+          "enum": ["status", "diff", "commit", "branch", "merge_base"]
+        },
+        "commit_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40,64}$"
+        },
+        "source_event": {
+          "type": "string",
+          "enum": ["item.started", "item.completed", "adapter", "git", "verification"]
+        },
+        "time_basis": {
+          "const": "adapter_observed"
+        }
+      }
+    },
+    "fileSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "change", "additions", "deletions"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "previous_path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "change": {
+          "type": "string",
+          "enum": ["added", "modified", "deleted", "renamed"]
+        },
+        "additions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deletions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "line_counts_known": {
+          "type": "boolean"
+        },
+        "before_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "after_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "tests", "checks"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "partial", "not_run"]
+        },
+        "tests": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["passed", "failed", "skipped"],
+          "properties": {
+            "passed": {"type": "integer", "minimum": 0},
+            "failed": {"type": "integer", "minimum": 0},
+            "skipped": {"type": "integer", "minimum": 0}
+          }
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "status"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "status": {
+                "type": "string",
+                "enum": ["passed", "failed", "skipped"]
+              },
+              "event_id": {
+                "type": "string",
+                "pattern": "^evt_[a-zA-Z0-9_-]{6,64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "canonicalization", "content_digest"],
+      "properties": {
+        "algorithm": {
+          "const": "sha256"
+        },
+        "canonicalization": {
+          "const": "RFC8785"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "subject_digest"],
+      "properties": {
+        "provider": {
+          "const": "github"
+        },
+        "subject_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "verification_uri": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        }
+      }
+    }
+  }
+}
