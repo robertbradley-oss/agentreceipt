@@ -1,0 +1,322 @@
+{
+  "schema_version": "0.1",
+  "receipt_id": "dcef47a5-8690-4146-a885-7f0a6d42d2c3",
+  "created_at": "2026-07-18T06:14:14.704Z",
+  "task": {
+    "title": "Add the harmless public demo file",
+    "description": "Add one harmless text file for the public AgentReceipt pull-request demonstration.",
+    "source": "user"
+  },
+  "session": {
+    "id": "7a7c7634-8043-4863-bd6d-0be4dbe50c71",
+    "started_at": "2026-07-18T06:13:43.686Z",
+    "ended_at": "2026-07-18T06:14:14.704Z",
+    "status": "completed"
+  },
+  "agent": {
+    "name": "Codex",
+    "version": "0.145.0-alpha.18"
+  },
+  "repository": {
+    "provider": "github",
+    "owner": "robertbradley-oss",
+    "name": "agentreceipt",
+    "branch": "codex/public-demo",
+    "binding_status": "draft",
+    "capture_start_sha": "036e938fc9af9252bcb6146a84214d0730a5ce2f",
+    "capture_end_sha": "036e938fc9af9252bcb6146a84214d0730a5ce2f"
+  },
+  "capture": {
+    "adapter": "agentreceipt-codex-exec",
+    "adapter_version": "0.1.0",
+    "source": "direct_observation",
+    "surface": "codex_exec_jsonl",
+    "status": "complete_for_declared_surface",
+    "capabilities": [
+      "lifecycle",
+      "tools",
+      "commands",
+      "files",
+      "tests",
+      "git",
+      "usage"
+    ],
+    "observed_capabilities": [
+      "commands",
+      "files",
+      "git",
+      "lifecycle",
+      "tests",
+      "usage"
+    ],
+    "unavailable_capabilities": [
+      "Codex-origin event timestamps",
+      "Codex-origin command duration",
+      "model identity from the JSONL stream",
+      "host activity outside the wrapped process"
+    ],
+    "record_counts": {
+      "parsed": 13,
+      "discarded_sensitive": 27,
+      "unknown": 0,
+      "malformed": 0
+    },
+    "terminal_event_received": true,
+    "limitations": [
+      "Capture is limited to the wrapped Codex process and its documented JSONL stream.",
+      "Absence of an event is not host-level proof that an action did not occur.",
+      "Event timestamps are adapter observation times, not Codex-origin timestamps.",
+      "Messages, reasoning, commands, command output, and raw Codex identifiers were discarded.",
+      "This receipt is local structured evidence, not a tamper-proof audit record.",
+      "Changed-file line counts are unavailable in this milestone; zero values are placeholders, not measured counts."
+    ]
+  },
+  "privacy": {
+    "capture_level": "metadata",
+    "raw_content_included": false,
+    "redactions": [
+      {
+        "category": "prompt",
+        "count": 1
+      },
+      {
+        "category": "identifier",
+        "count": 11
+      },
+      {
+        "category": "message",
+        "count": 2
+      },
+      {
+        "category": "command",
+        "count": 6
+      },
+      {
+        "category": "command_output",
+        "count": 6
+      },
+      {
+        "category": "source_content",
+        "count": 2
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "evt_codex_000000",
+      "sequence": 0,
+      "timestamp": "2026-07-18T06:13:43.686Z",
+      "type": "session",
+      "outcome": "started",
+      "summary": "Wrapped Codex receipt capture started.",
+      "details": {
+        "phase": "start",
+        "source_event": "adapter",
+        "time_basis": "adapter_observed"
+      },
+      "evidence_digest": "sha256:0622a0be099ebd46ab6f859efa95d76d1308526632ef11286ca64a4ba1fc8d0e"
+    },
+    {
+      "timestamp": "2026-07-18T06:13:50.338Z",
+      "type": "command",
+      "outcome": "started",
+      "summary": "Codex started a command; command text and output were discarded.",
+      "details": {
+        "command": "<redacted>",
+        "source_event": "item.started",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000001",
+      "sequence": 1,
+      "evidence_digest": "sha256:d10b30a534adfcff3075d6258773d1367500d336478f3667d69c1ecb64ac6bb8"
+    },
+    {
+      "timestamp": "2026-07-18T06:13:50.918Z",
+      "type": "command",
+      "outcome": "succeeded",
+      "summary": "Codex completed a command; command text and output were discarded.",
+      "details": {
+        "command": "<redacted>",
+        "exit_code": 0,
+        "source_event": "item.completed",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000002",
+      "sequence": 2,
+      "evidence_digest": "sha256:13a5994471dd66f6b2bea94de23ca552968f74a1c9b7487a76e4040b0ed88b1d"
+    },
+    {
+      "timestamp": "2026-07-18T06:13:52.760Z",
+      "type": "tool",
+      "outcome": "started",
+      "summary": "Codex started a codex-file-change event; sensitive content was discarded.",
+      "details": {
+        "tool_name": "codex-file-change",
+        "source_event": "item.started",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000003",
+      "sequence": 3,
+      "evidence_digest": "sha256:f23483a789814023ceef075b286425ecf6e231762cdeec9e39e1d2ef1629de58"
+    },
+    {
+      "timestamp": "2026-07-18T06:13:55.844Z",
+      "type": "tool",
+      "outcome": "succeeded",
+      "summary": "Codex completed a codex-file-change event; sensitive content was discarded.",
+      "details": {
+        "tool_name": "codex-file-change",
+        "source_event": "item.completed",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000004",
+      "sequence": 4,
+      "evidence_digest": "sha256:97174ad6f88080c51a499c1d030bd337bd82fcfe7aef1f353a8c4742c93b4844"
+    },
+    {
+      "timestamp": "2026-07-18T06:14:00.616Z",
+      "type": "command",
+      "outcome": "started",
+      "summary": "Codex started a command; command text and output were discarded.",
+      "details": {
+        "command": "<redacted>",
+        "source_event": "item.started",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000005",
+      "sequence": 5,
+      "evidence_digest": "sha256:ba5dd208816a466be009d143f1f29cbd65edaf5b611956876849b9ad60508dfa"
+    },
+    {
+      "timestamp": "2026-07-18T06:14:00.878Z",
+      "type": "command",
+      "outcome": "failed",
+      "summary": "Codex completed a command; command text and output were discarded.",
+      "details": {
+        "command": "<redacted>",
+        "exit_code": 1,
+        "source_event": "item.completed",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000006",
+      "sequence": 6,
+      "evidence_digest": "sha256:6fcbc9724d7c9135150244e3f6f5a5f410f9165a32a866c23b6e22b1edaa92bd"
+    },
+    {
+      "timestamp": "2026-07-18T06:14:05.829Z",
+      "type": "command",
+      "outcome": "started",
+      "summary": "Codex started a command; command text and output were discarded.",
+      "details": {
+        "command": "<redacted>",
+        "source_event": "item.started",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000007",
+      "sequence": 7,
+      "evidence_digest": "sha256:aad5da31211940abc5d3414f5526067a25a4b5048b104c8668834288fb5b60ee"
+    },
+    {
+      "timestamp": "2026-07-18T06:14:06.131Z",
+      "type": "command",
+      "outcome": "succeeded",
+      "summary": "Codex completed a command; command text and output were discarded.",
+      "details": {
+        "command": "<redacted>",
+        "exit_code": 0,
+        "source_event": "item.completed",
+        "time_basis": "adapter_observed"
+      },
+      "id": "evt_codex_000008",
+      "sequence": 8,
+      "evidence_digest": "sha256:eb75d71db118033aad91d02ddcae44a870d482f0c2a8c92cdfdd95532250f658"
+    },
+    {
+      "id": "evt_codex_000009",
+      "sequence": 9,
+      "timestamp": "2026-07-18T06:14:14.422Z",
+      "type": "command",
+      "outcome": "succeeded",
+      "summary": "An independently executed verification command completed; command text and output were discarded.",
+      "duration_ms": 4629,
+      "details": {
+        "command": "<redacted authorized verification command>",
+        "exit_code": 0,
+        "source_event": "verification",
+        "time_basis": "adapter_observed"
+      },
+      "evidence_digest": "sha256:6cf61a9527c0355121396b96e022536a66c4626731b275c268b57cae0f76dea6"
+    },
+    {
+      "id": "evt_codex_000010",
+      "sequence": 10,
+      "timestamp": "2026-07-18T06:14:14.704Z",
+      "type": "git",
+      "outcome": "info",
+      "summary": "AgentReceipt independently recorded the repository state after the wrapped run.",
+      "details": {
+        "git_action": "diff",
+        "commit_sha": "036e938fc9af9252bcb6146a84214d0730a5ce2f",
+        "source_event": "git",
+        "time_basis": "adapter_observed"
+      },
+      "evidence_digest": "sha256:55b507b440554499612035b6204b6134cd73cdc27c320167357c370501551cd4"
+    },
+    {
+      "id": "evt_codex_000011",
+      "sequence": 11,
+      "timestamp": "2026-07-18T06:14:14.704Z",
+      "type": "session",
+      "outcome": "succeeded",
+      "summary": "Wrapped Codex receipt capture finished.",
+      "details": {
+        "phase": "finish",
+        "source_event": "adapter",
+        "time_basis": "adapter_observed"
+      },
+      "evidence_digest": "sha256:b3be564f7d9f59f9b4fcf73c1b40c4da5eff17d2091da17d1d1154f8402afcf5"
+    }
+  ],
+  "files": [
+    {
+      "path": "demo/hello.txt",
+      "change": "added",
+      "additions": 0,
+      "deletions": 0,
+      "line_counts_known": false,
+      "after_digest": "sha256:575d7888eb371b7d1bdc680d0d193e84448d72ff40aece02269147cc5e4df150"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "tests": {
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    "checks": [
+      {
+        "name": "User-authorized verification command",
+        "status": "passed",
+        "event_id": "evt_codex_000009"
+      }
+    ]
+  },
+  "extensions": {
+    "dev.agentreceipt.codex-exec": {
+      "usage": {
+        "input_tokens": 83486,
+        "cached_input_tokens": 74496,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 703,
+        "reasoning_output_tokens": 139
+      },
+      "process_exit_code": 0
+    }
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "RFC8785",
+    "content_digest": "sha256:f38481e0229c725a38ff05cb950f9cd91f92012d3919cde6d4d32f79496816cc"
+  }
+}
