@@ -17,7 +17,8 @@
     "privacy",
     "events",
     "files",
-    "verification"
+    "verification",
+    "integrity"
   ],
   "properties": {
     "schema_version": {
@@ -64,6 +65,9 @@
     "verification": {
       "$ref": "#/$defs/verification"
     },
+    "finalization": {
+      "$ref": "#/$defs/finalization"
+    },
     "integrity": {
       "$ref": "#/$defs/integrity"
     },
@@ -79,6 +83,84 @@
       "additionalProperties": true
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "object",
+            "properties": {"binding_status": {"const": "draft"}},
+            "required": ["binding_status"]
+          }
+        },
+        "required": ["repository"]
+      },
+      "then": {
+        "type": "object",
+        "not": {"type": "object", "required": ["finalization"]}
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "object",
+            "properties": {"binding_status": {"const": "finalized"}},
+            "required": ["binding_status"]
+          }
+        },
+        "required": ["repository"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["finalization"],
+        "not": {"type": "object", "required": ["attestation"]}
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "finalization": {
+            "type": "object",
+            "properties": {"event": {"const": "pull_request"}},
+            "required": ["event"]
+          }
+        },
+        "required": ["finalization"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "repository": {"type": "object", "required": ["base_sha"]}
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "finalization": {
+            "type": "object",
+            "properties": {"event": {"const": "workflow_dispatch"}},
+            "required": ["event"]
+          }
+        },
+        "required": ["finalization"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "object",
+            "not": {"type": "object", "required": ["base_sha"]}
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "timestamp": {
       "type": "string",
@@ -166,7 +248,15 @@
     "repository": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider", "owner", "name", "branch", "head_sha"],
+      "required": [
+        "provider",
+        "owner",
+        "name",
+        "branch",
+        "binding_status",
+        "capture_start_sha",
+        "capture_end_sha"
+      ],
       "properties": {
         "provider": {
           "const": "github"
@@ -186,15 +276,54 @@
           "minLength": 1,
           "maxLength": 255
         },
+        "binding_status": {
+          "type": "string",
+          "enum": ["draft", "finalized"]
+        },
+        "capture_start_sha": {
+          "type": "string",
+          "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
+        },
+        "capture_end_sha": {
+          "type": "string",
+          "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
+        },
         "base_sha": {
           "type": "string",
-          "pattern": "^[a-f0-9]{40,64}$"
+          "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
         },
         "head_sha": {
           "type": "string",
-          "pattern": "^[a-f0-9]{40,64}$"
+          "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {"binding_status": {"const": "draft"}},
+            "required": ["binding_status"]
+          },
+          "then": {
+            "type": "object",
+            "not": {
+              "type": "object",
+              "anyOf": [
+                {"type": "object", "required": ["base_sha"]},
+                {"type": "object", "required": ["head_sha"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {"binding_status": {"const": "finalized"}},
+            "required": ["binding_status"]
+          },
+          "then": {"type": "object", "required": ["head_sha"]}
+        }
+      ]
     },
     "capture": {
       "type": "object",
@@ -450,7 +579,7 @@
         },
         "commit_sha": {
           "type": "string",
-          "pattern": "^[a-f0-9]{40,64}$"
+          "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
         },
         "source_event": {
           "type": "string",
@@ -464,7 +593,7 @@
     "fileSummary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "change", "additions", "deletions"],
+      "required": ["path", "change", "additions", "deletions", "line_counts_known"],
       "properties": {
         "path": {
           "$ref": "#/$defs/relativePath"
@@ -493,6 +622,62 @@
         "after_digest": {
           "$ref": "#/$defs/digest"
         }
+      },
+      "allOf": [
+        {
+          "if": {"type": "object", "properties": {"change": {"const": "added"}}, "required": ["change"]},
+          "then": {
+            "type": "object",
+            "required": ["after_digest"],
+            "not": {
+              "type": "object",
+              "anyOf": [
+                {"type": "object", "required": ["before_digest"]},
+                {"type": "object", "required": ["previous_path"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {"type": "object", "properties": {"change": {"const": "modified"}}, "required": ["change"]},
+          "then": {
+            "type": "object",
+            "required": ["before_digest", "after_digest"],
+            "not": {"type": "object", "required": ["previous_path"]}
+          }
+        },
+        {
+          "if": {"type": "object", "properties": {"change": {"const": "deleted"}}, "required": ["change"]},
+          "then": {
+            "type": "object",
+            "required": ["before_digest"],
+            "not": {
+              "type": "object",
+              "anyOf": [
+                {"type": "object", "required": ["after_digest"]},
+                {"type": "object", "required": ["previous_path"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {"type": "object", "properties": {"change": {"const": "renamed"}}, "required": ["change"]},
+          "then": {"type": "object", "required": ["previous_path", "before_digest", "after_digest"]}
+        }
+      ]
+    },
+    "finalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "event", "draft_content_digest", "finalized_at"],
+      "properties": {
+        "method": {"const": "github_event"},
+        "event": {
+          "type": "string",
+          "enum": ["pull_request", "push", "workflow_dispatch"]
+        },
+        "draft_content_digest": {"$ref": "#/$defs/digest"},
+        "finalized_at": {"$ref": "#/$defs/timestamp"}
       }
     },
     "verification": {

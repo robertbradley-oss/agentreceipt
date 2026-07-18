@@ -1,5 +1,7 @@
-import { execFile } from "node:child_process";
-import { basename, isAbsolute } from "node:path";
+import { execFile, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { lstat, open, realpath } from "node:fs/promises";
+import { basename, isAbsolute, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import { CliError } from "./errors.js";
@@ -18,9 +20,7 @@ async function runGitRaw(cwd: string, args: string[]): Promise<string> {
     });
     return stdout;
   } catch {
-    throw new CliError(
-      `Could not run git ${args.join(" ")}. Ensure Git is installed and this repository has at least one commit.`,
-    );
+    throw new CliError("Could not inspect the Git repository safely.");
   }
 }
 
@@ -66,6 +66,9 @@ function parseNameStatus(raw: string): RepositoryFileChange[] {
         path: safeRepositoryPath(path),
         previousPath: safeRepositoryPath(previousPath),
         change: "renamed",
+        additions: 0,
+        deletions: 0,
+        lineCountsKnown: false,
       });
       continue;
     }
@@ -74,7 +77,13 @@ function parseNameStatus(raw: string): RepositoryFileChange[] {
     if (!path) {
       throw new CliError("Git returned an incomplete changed-file record.");
     }
-    changes.push({ path: safeRepositoryPath(path), change: changeFromStatus(status) });
+    changes.push({
+      path: safeRepositoryPath(path),
+      change: changeFromStatus(status),
+      additions: 0,
+      deletions: 0,
+      lineCountsKnown: false,
+    });
   }
 
   return changes;
@@ -83,6 +92,100 @@ function parseNameStatus(raw: string): RepositoryFileChange[] {
 function isAgentReceiptStorage(path: string): boolean {
   const normalized = path.replaceAll("\\", "/");
   return normalized === ".agentreceipt" || normalized.startsWith(".agentreceipt/");
+}
+
+function pathIsWithin(parent: string, candidate: string): boolean {
+  const child = relative(parent, candidate);
+  return child === "" || (!child.startsWith("..") && !isAbsolute(child));
+}
+
+async function hashWorkingTreeFile(root: string, repositoryPath: string): Promise<`sha256:${string}`> {
+  const safePath = safeRepositoryPath(repositoryPath);
+  const rootRealPath = await realpath(root);
+  const candidatePath = resolve(rootRealPath, safePath);
+  const candidateStats = await lstat(candidatePath);
+  const candidateRealPath = await realpath(candidatePath);
+
+  if (candidateStats.isSymbolicLink() || !candidateStats.isFile() || !pathIsWithin(rootRealPath, candidateRealPath)) {
+    throw new CliError("A changed file could not be hashed safely.");
+  }
+
+  const handle = await open(candidateRealPath, "r");
+  try {
+    const openedStats = await handle.stat();
+    if (!openedStats.isFile()) {
+      throw new CliError("A changed file could not be hashed safely.");
+    }
+
+    const hash = createHash("sha256");
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let position = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, position);
+      if (bytesRead === 0) break;
+      hash.update(buffer.subarray(0, bytesRead));
+      position += bytesRead;
+    }
+    return `sha256:${hash.digest("hex")}`;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function hashGitBlob(root: string, commitSha: string, repositoryPath: string): Promise<`sha256:${string}`> {
+  const safePath = safeRepositoryPath(repositoryPath);
+  const record = await runGitRaw(root, ["ls-tree", "-z", commitSha, "--", safePath]);
+  const tab = record.indexOf("\t");
+  const nul = record.indexOf("\0", tab + 1);
+  if (tab < 0 || nul < 0 || record.slice(tab + 1, nul) !== safePath) {
+    throw new CliError("A required Git blob is unavailable.");
+  }
+
+  const [mode, type, objectId] = record.slice(0, tab).split(" ");
+  if (!mode || type !== "blob" || !objectId || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(objectId)) {
+    throw new CliError("A required Git blob is unavailable.");
+  }
+
+  const gitExecutable = process.env.AGENTRECEIPT_GIT_PATH ?? "git";
+  const child = spawn(gitExecutable, ["cat-file", "blob", objectId], {
+    cwd: root,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const hash = createHash("sha256");
+  child.stdout.on("data", (chunk: Buffer) => hash.update(chunk));
+  child.stderr.on("data", () => undefined);
+  const exitCode = await new Promise<number>((resolveExit) => {
+    child.once("close", (code) => resolveExit(code ?? 1));
+    child.once("error", () => resolveExit(1));
+  });
+  if (exitCode !== 0) {
+    throw new CliError("A required Git blob is unavailable.");
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
+
+async function enrichChange(
+  root: string,
+  baseSha: string,
+  change: RepositoryFileChange,
+): Promise<RepositoryFileChange> {
+  const beforePath = change.change === "renamed" ? change.previousPath : change.path;
+  const beforeDigest = change.change === "added" || !beforePath
+    ? undefined
+    : await hashGitBlob(root, baseSha, beforePath);
+  const afterDigest = change.change === "deleted"
+    ? undefined
+    : await hashWorkingTreeFile(root, change.path);
+
+  return {
+    ...change,
+    additions: 0,
+    deletions: 0,
+    lineCountsKnown: false,
+    ...(beforeDigest ? { beforeDigest } : {}),
+    ...(afterDigest ? { afterDigest } : {}),
+  };
 }
 
 function worktreeIsClean(raw: string): boolean {
@@ -150,7 +253,16 @@ export async function readRepository(cwd: string): Promise<RepositorySnapshot> {
 
 export async function readRepositoryChanges(root: string, baseSha: string): Promise<RepositoryFileChange[]> {
   const tracked = parseNameStatus(
-    await runGitRaw(root, ["diff", "--name-status", "-z", "--find-renames", baseSha, "--"]),
+    await runGitRaw(root, [
+      "diff",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--name-status",
+      "-z",
+      "--find-renames",
+      baseSha,
+      "--",
+    ]),
   );
   const untracked = (await runGitRaw(root, ["ls-files", "--others", "--exclude-standard", "-z"]))
     .split("\0")
@@ -159,11 +271,20 @@ export async function readRepositoryChanges(root: string, baseSha: string): Prom
     .map((path) => ({
       path: safeRepositoryPath(path),
       change: "added" as const,
+      additions: 0,
+      deletions: 0,
+      lineCountsKnown: false,
     }));
 
   const byPath = new Map<string, RepositoryFileChange>();
   for (const change of [...tracked, ...untracked]) {
-    byPath.set(change.path, change);
+    byPath.set(change.path, {
+      ...change,
+      additions: change.additions ?? 0,
+      deletions: change.deletions ?? 0,
+      lineCountsKnown: change.lineCountsKnown ?? false,
+    });
   }
-  return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
+  const sorted = [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
+  return Promise.all(sorted.map((change) => enrichChange(root, baseSha, change)));
 }

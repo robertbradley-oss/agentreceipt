@@ -22,8 +22,14 @@ interface ReceiptShape {
     provider: string;
     owner: string;
     name: string;
+    binding_status: "draft" | "finalized";
     base_sha?: string;
-    head_sha: string;
+    head_sha?: string;
+  };
+  finalization?: {
+    method: string;
+    event: "pull_request" | "push" | "workflow_dispatch";
+    draft_content_digest: string;
   };
 }
 
@@ -38,6 +44,7 @@ const CHECK_NAMES: CheckName[] = [
   "schema",
   "privacy",
   "integrity",
+  "finalization",
   "repository_binding",
   "capture_completeness",
 ];
@@ -74,12 +81,15 @@ function repositoryMatches(receipt: ReceiptShape, binding: GitHubBinding): boole
     repository.provider !== "github"
     || repository.owner.toLowerCase() !== binding.owner.toLowerCase()
     || repository.name.toLowerCase() !== binding.name.toLowerCase()
+    || repository.binding_status !== "finalized"
     || repository.head_sha !== binding.headSha
   ) {
     return false;
   }
 
-  return binding.baseSha === undefined || repository.base_sha === binding.baseSha;
+  return binding.baseSha === undefined
+    ? repository.base_sha === undefined
+    : repository.base_sha === binding.baseSha;
 }
 
 export function validateLoadedReceipt(
@@ -128,6 +138,18 @@ export function validateLoadedReceipt(
     integrityPassed ? "The content digest matches." : "The content digest is missing or does not match.",
   ));
 
+  const finalizationPassed = receipt.repository.binding_status === "finalized"
+    && receipt.finalization?.method === "github_event"
+    && receipt.finalization.event === binding.eventName
+    && /^sha256:[a-f0-9]{64}$/.test(receipt.finalization.draft_content_digest);
+  checks.push(check(
+    "finalization",
+    finalizationPassed ? "pass" : "fail",
+    finalizationPassed
+      ? "The receipt is finalized for this GitHub event type."
+      : "A GitHub-event finalized receipt is required.",
+  ));
+
   const bindingPassed = repositoryMatches(receipt, binding);
   checks.push(check(
     "repository_binding",
@@ -153,7 +175,7 @@ export function validateLoadedReceipt(
   }
   checks.push(check("capture_completeness", completenessStatus, completenessReason));
 
-  const passed = privacyPassed && integrityPassed && bindingPassed && completenessPassed;
+  const passed = privacyPassed && integrityPassed && finalizationPassed && bindingPassed && completenessPassed;
   return {
     passed,
     checks,

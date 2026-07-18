@@ -24,7 +24,7 @@ export function parseArguments(args: string[]): ParsedArguments {
       const name = argument.slice(2, equalsIndex);
       const value = argument.slice(equalsIndex + 1);
       if (!name || !value) {
-        throw new CliError(`Invalid option: ${argument}`, 2);
+        throw new CliError("Invalid option syntax.", 2);
       }
       options.set(name, value);
       continue;
@@ -64,7 +64,7 @@ export function stringOption(
 export function rejectUnknownOptions(parsed: ParsedArguments, allowed: string[]): void {
   for (const name of parsed.options.keys()) {
     if (!allowed.includes(name)) {
-      throw new CliError(`Unknown option --${name}.`, 2);
+      throw new CliError("Unknown option.", 2);
     }
   }
 }

@@ -2,11 +2,12 @@
 
 AgentReceipt is a portable, privacy-first proof-of-work format for AI coding agents. It records observable evidence—tool and command lifecycles, file changes, verification results, and Git state—without recording prompts, messages, source content, command output, or private reasoning.
 
-The project is pre-alpha. It now has three local workflows:
+The project is pre-alpha. It now has four local workflows:
 
 - a simulator for exercising `start`, `finish`, and `inspect`;
 - a first real adapter that wraps the documented `codex exec --json` stream.
-- a local GitHub Action that validates a committed receipt against its workflow event.
+- a GitHub Actions-only finalizer that converts a committed draft into a separate event-bound receipt; and
+- a local GitHub Action that validates a finalized receipt against its workflow event.
 
 ## Development
 
@@ -110,7 +111,7 @@ steps:
       persist-credentials: false
   - uses: ./packages/github-action
     with:
-      receipt-path: .agentreceipt/receipt.json
+      receipt-path: .agentreceipt/finalized/receipt.json
       allow-partial: "false"
 ```
 
@@ -118,17 +119,47 @@ The Action makes no network requests and needs no token beyond read-only checkou
 
 Complete-for-declared-surface receipts pass the completeness check. Partial receipts fail unless `allow-partial: "true"` is explicitly set, in which case the summary shows a warning. Failed receipts always fail. For pull requests, binding uses the pull request head and base SHAs rather than the synthetic merge SHA. For pushes, it uses `GITHUB_SHA` and the previous commit when one exists.
 
-The current Codex adapter records Git state before a later commit is created. Therefore, its pre-commit receipt intentionally fails strict head-SHA binding after that commit. The [finalization feasibility spike](docs/receipt-finalization-feasibility.md) found a conditional path forward without weakening the Action.
+The simulator and Codex adapter produce **draft** receipts. Drafts preserve distinct capture-start and capture-end SHAs, contain change-appropriate before/after file digests, and intentionally fail the Action's finalized-lifecycle check.
 
 Passing this Action means the receipt is structurally valid, privacy-screened, matches its embedded digest, meets the selected completeness policy, and is bound to the workflow event. Because an unsigned digest can be recomputed, this is an internal consistency check rather than external authentication. It does **not** prove code quality, prove that every action was observed, provide cryptographic attestation, or make the agent's claims independently true.
 
-## Receipt finalization design
+## Receipt finalization
 
 The finalized receipt cannot be stored inside the commit whose SHA it contains: changing the receipt changes the commit. The approved design instead commits a sanitized draft as transport input, checks out the GitHub event head, and creates the canonical finalized receipt at a new ignored, untracked workspace path. The finalized artifact can then be validated and, in a later milestone, attested and uploaded.
 
-The spike also found that capture start, capture end, review base, and event head are distinct facts. The current two-SHA schema cannot preserve all of them. Implementation is therefore a **conditional GO** requiring additive state fields, per-file before/after digests, strict Git ancestry and file-evidence checks, and an allowlisted draft-to-finalized transition. The implementation-ready behavior is specified in [the v0.1 finalization contract](docs/receipt-finalization-contract-v0.1.md).
+After capture, place the sanitized draft at a tracked path and include it in the result commit. In GitHub Actions, check out the real event head with full history, build the workspace, and run:
 
-No `agentreceipt finalize` command exists yet. That command, schema evolution, producer updates, and finalized-state enforcement in the Action belong to the next separately locked implementation milestone.
+```bash
+agentreceipt finalize \
+  --input receipts/agentreceipt-draft.json \
+  --output .agentreceipt/finalized/receipt.json
+```
+
+For a partial capture, finalization fails unless `--allow-partial` is present. Failed captures always fail. The command is unavailable outside GitHub Actions and accepts no SHA overrides, overwrite mode, or in-place output.
+
+The finalizer independently requires:
+
+- a schema-valid, integrity-valid, privacy-screened, unattested draft;
+- a regular tracked input whose bytes match the checked-out commit;
+- a new ignored and untracked output path inside `GITHUB_WORKSPACE`;
+- repository identity and checked-out `HEAD` matching the bounded GitHub event;
+- provable capture and review ancestry from local Git objects;
+- an exact changed-path summary after excluding only the tracked draft input; and
+- matching change types, rename sources, declared line counts, and before/after Git-tree digests.
+
+Only repository binding status, review base, event head, finalization metadata, and the integrity block may change. The output is written through an exclusive temporary file and atomically published. Receipt strings, event payloads, diff bodies, commands, credentials, personal paths, and unsafe caught exception text are not logged.
+
+Pull-request workflows must explicitly check out the pull-request head rather than GitHub's synthetic merge commit:
+
+```yaml
+- uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+  with:
+    persist-credentials: false
+    fetch-depth: 0
+    ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+```
+
+Then validate the generated output with the local Action and its existing `allow-partial` policy. The full behavior is specified in [the v0.1 finalization contract](docs/receipt-finalization-contract-v0.1.md).
 
 A future signature or GitHub artifact attestation may prove which workflow produced the finalized bytes and that they were not changed afterward. It will not prove that every statement inside the receipt is true.
 
@@ -141,7 +172,9 @@ Completed:
 - simulated `start`, `finish`, and `inspect` commands;
 - documented Codex capture feasibility spike;
 - first privacy-safe `codex exec --json` adapter vertical slice;
+- explicit draft/finalized lifecycle with per-file before/after digests;
+- GitHub-event finalization with strict ancestry, file-evidence, and path checks;
 - local GitHub Action validation with safe step summaries;
-- receipt-finalization lifecycle spike with a conditional-GO implementation contract.
+- finalized-state enforcement in the local GitHub Action.
 
-Deferred to later milestones: receipt-finalization implementation, attestations, static replay/viewer, hooks, App Server, telemetry, plugins, and publishing.
+Deferred to later milestones: attestations, artifact upload, comments/status publication, static replay/viewer, hooks, App Server, telemetry, plugins, and publishing.

@@ -15,6 +15,7 @@ function fatalReport(): ValidationReport {
       { name: "schema", status: "not_run", reason: "GitHub context validation failed safely." },
       { name: "privacy", status: "not_run", reason: "GitHub context validation failed safely." },
       { name: "integrity", status: "not_run", reason: "GitHub context validation failed safely." },
+      { name: "finalization", status: "not_run", reason: "GitHub context validation failed safely." },
       { name: "repository_binding", status: "not_run", reason: "GitHub context validation failed safely." },
       { name: "capture_completeness", status: "not_run", reason: "GitHub context validation failed safely." },
     ],

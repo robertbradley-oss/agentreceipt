@@ -4,6 +4,7 @@ export type CheckName =
   | "schema"
   | "privacy"
   | "integrity"
+  | "finalization"
   | "repository_binding"
   | "capture_completeness";
 

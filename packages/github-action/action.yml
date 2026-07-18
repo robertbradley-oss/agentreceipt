@@ -1,10 +1,10 @@
 name: AgentReceipt validation
-description: Validate an AgentReceipt without exposing its captured content.
+description: Validate a finalized GitHub-bound AgentReceipt without exposing its captured content.
 author: AgentReceipt
 
 inputs:
   receipt-path:
-    description: Workspace-relative path to receipt.json.
+    description: Workspace-relative path to a finalized receipt JSON file.
     required: true
   allow-partial:
     description: Accept a partial capture with a warning. Failed captures are never accepted.

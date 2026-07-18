@@ -4,7 +4,7 @@ import { SafeValidationError } from "./errors.js";
 import type { GitHubBinding } from "./types.js";
 
 const MAX_EVENT_BYTES = 1024 * 1024;
-const SHA_PATTERN = /^[a-f0-9]{40,64}$/;
+const SHA_PATTERN = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const REPOSITORY_PATTERN = /^([A-Za-z0-9_.-]{1,100})\/([A-Za-z0-9_.-]{1,100})$/;
 
 type EventObject = Record<string, unknown>;
@@ -79,7 +79,10 @@ export async function bindingFromEnvironment(
 
   if (eventName === "push") {
     const before = stringAt(event, "before");
-    const baseSha = before && SHA_PATTERN.test(before) && !/^0+$/.test(before) ? before : undefined;
+    if (!before || !SHA_PATTERN.test(before)) {
+      throw new SafeValidationError("invalid_github_context");
+    }
+    const baseSha = !/^0+$/.test(before) ? before : undefined;
     return {
       owner,
       name,

@@ -4,6 +4,7 @@ const LABELS = {
   schema: "Schema and semantics",
   privacy: "Privacy rules",
   integrity: "Integrity digest",
+  finalization: "Finalized lifecycle",
   repository_binding: "Repository and commit binding",
   capture_completeness: "Capture completeness",
 } as const;

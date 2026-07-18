@@ -4,6 +4,11 @@ export interface RepositoryFileChange {
   path: string;
   previousPath?: string;
   change: "added" | "modified" | "deleted" | "renamed";
+  additions: number;
+  deletions: number;
+  lineCountsKnown: boolean;
+  beforeDigest?: `sha256:${string}`;
+  afterDigest?: `sha256:${string}`;
 }
 
 export interface RepositorySnapshot {
@@ -37,13 +42,14 @@ export interface ActiveSession {
     owner: string;
     name: string;
     branch: string;
-    base_sha: string;
+    capture_start_sha: string;
   };
   limitations: string[];
 }
 
 export interface CliDependencies {
   cwd: string;
+  environment: NodeJS.ProcessEnv;
   now: () => Date;
   randomUUID: () => string;
   readRepository: (cwd: string) => Promise<RepositorySnapshot>;

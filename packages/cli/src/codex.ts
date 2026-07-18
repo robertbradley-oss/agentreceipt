@@ -223,8 +223,9 @@ export function createCodexReceipt(options: CreateCodexReceiptOptions): AgentRec
       owner: options.repositoryBefore.owner,
       name: options.repositoryBefore.name,
       branch: options.repositoryAfter.branch,
-      base_sha: options.repositoryBefore.headSha,
-      head_sha: options.repositoryAfter.headSha,
+      binding_status: "draft",
+      capture_start_sha: options.repositoryBefore.headSha,
+      capture_end_sha: options.repositoryAfter.headSha,
     },
     capture: {
       adapter: "agentreceipt-codex-exec",
@@ -249,9 +250,11 @@ export function createCodexReceipt(options: CreateCodexReceiptOptions): AgentRec
       path: change.path,
       ...(change.previousPath ? { previous_path: change.previousPath } : {}),
       change: change.change,
-      additions: 0,
-      deletions: 0,
-      line_counts_known: false,
+      additions: change.additions,
+      deletions: change.deletions,
+      line_counts_known: change.lineCountsKnown,
+      ...(change.beforeDigest ? { before_digest: change.beforeDigest } : {}),
+      ...(change.afterDigest ? { after_digest: change.afterDigest } : {}),
     })),
     verification: {
       status: options.verification

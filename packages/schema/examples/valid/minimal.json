@@ -21,8 +21,9 @@
     "owner": "example",
     "name": "api-service",
     "branch": "feature/health-check",
-    "base_sha": "1111111111111111111111111111111111111111",
-    "head_sha": "2222222222222222222222222222222222222222"
+    "binding_status": "draft",
+    "capture_start_sha": "1111111111111111111111111111111111111111",
+    "capture_end_sha": "2222222222222222222222222222222222222222"
   },
   "capture": {
     "adapter": "agentreceipt-codex",
@@ -82,6 +83,7 @@
       "change": "added",
       "additions": 18,
       "deletions": 0,
+      "line_counts_known": true,
       "after_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     }
   ],
@@ -99,5 +101,10 @@
         "event_id": "evt_test001"
       }
     ]
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "RFC8785",
+    "content_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
   }
 }

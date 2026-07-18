@@ -4,7 +4,14 @@ interface ReceiptView {
   receipt_id: string;
   task: { title: string; description: string };
   session: { status: string; started_at: string; ended_at: string };
-  repository: { owner: string; name: string; branch: string; base_sha?: string; head_sha: string };
+  repository: {
+    owner: string;
+    name: string;
+    branch: string;
+    binding_status: "draft" | "finalized";
+    base_sha?: string;
+    head_sha?: string;
+  };
   capture: { source: string; surface?: string; status?: string; limitations?: string[] };
   events: unknown[];
   files: Array<{
@@ -39,6 +46,7 @@ export function formatReceipt(receipt: AgentReceipt): string {
     `Capture:    ${view.capture.status?.replaceAll("_", " ") ?? "unspecified"}`,
     `Surface:    ${view.capture.surface ?? view.capture.source}`,
     `Repository: ${view.repository.owner}/${view.repository.name} (${view.repository.branch})`,
+    `Binding:    ${view.repository.binding_status}`,
     `Receipt:    ${view.receipt_id}`,
     `Events:     ${view.events.length}`,
     `Tests:      ${view.verification.tests.passed} passed, ${view.verification.tests.failed} failed, ${view.verification.tests.skipped} skipped`,

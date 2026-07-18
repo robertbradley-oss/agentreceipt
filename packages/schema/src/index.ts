@@ -20,6 +20,15 @@ const validate = ajv.compile(receiptSchema);
 
 interface ReceiptForSemanticValidation {
   created_at: string;
+  repository: {
+    capture_start_sha: string;
+    capture_end_sha: string;
+    base_sha?: string;
+    head_sha?: string;
+  };
+  finalization?: {
+    finalized_at: string;
+  };
   session: {
     started_at: string;
     ended_at: string;
@@ -31,6 +40,7 @@ interface ReceiptForSemanticValidation {
   }>;
   files: Array<{
     path: string;
+    previous_path?: string;
   }>;
   verification: {
     checks: Array<{
@@ -84,6 +94,29 @@ function validateSemantics(value: AgentReceipt): ValidationIssue[] {
       "/created_at",
       "timeOrder",
       "must not be earlier than session.ended_at",
+    ));
+  }
+
+  if (receipt.finalization && Date.parse(receipt.finalization.finalized_at) < createdAt) {
+    issues.push(semanticIssue(
+      "/finalization/finalized_at",
+      "timeOrder",
+      "must not be earlier than created_at",
+    ));
+  }
+
+  const repositoryShas = [
+    receipt.repository.capture_start_sha,
+    receipt.repository.capture_end_sha,
+    receipt.repository.base_sha,
+    receipt.repository.head_sha,
+  ].filter((sha): sha is string => sha !== undefined);
+  const shaLength = repositoryShas[0]?.length;
+  if (shaLength !== undefined && repositoryShas.some((sha) => sha.length !== shaLength)) {
+    issues.push(semanticIssue(
+      "/repository",
+      "objectFormat",
+      "all repository commit identifiers must use the same Git object format",
     ));
   }
 
@@ -142,6 +175,14 @@ function validateSemantics(value: AgentReceipt): ValidationIssue[] {
       ));
     }
     filePaths.add(file.path);
+
+    if (file.previous_path === file.path) {
+      issues.push(semanticIssue(
+        `/files/${index}/previous_path`,
+        "renamePath",
+        "must differ from path",
+      ));
+    }
   });
 
   receipt.verification.checks.forEach((check, index) => {

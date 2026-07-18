@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { CliError, executeCli } from "../dist/src/index.js";
+import { CliError, FinalizationError, executeCli } from "../dist/src/index.js";
+import { shouldWarnForAcceptedPartial } from "../dist/src/finalize.js";
 
 const baseSha = "1111111111111111111111111111111111111111";
 const headSha = "2222222222222222222222222222222222222222";
@@ -103,8 +104,11 @@ test("start, inspect, and finish complete a simulated receipt lifecycle", async 
     const jsonOutput = await executeCli(["inspect", "--json"], dependencies);
     const receipt = JSON.parse(jsonOutput);
     assert.equal(receipt.capture.source, "simulated");
-    assert.equal(receipt.repository.base_sha, baseSha);
-    assert.equal(receipt.repository.head_sha, headSha);
+    assert.equal(receipt.repository.binding_status, "draft");
+    assert.equal(receipt.repository.capture_start_sha, baseSha);
+    assert.equal(receipt.repository.capture_end_sha, headSha);
+    assert.equal(receipt.repository.base_sha, undefined);
+    assert.equal(receipt.repository.head_sha, undefined);
     assert.equal(receipt.events.length, 7);
     assert.equal(receipt.integrity.canonicalization, "RFC8785");
     assert.equal(
@@ -164,12 +168,27 @@ test("invalid simulated paths are rejected without archiving the active session"
 test("help is available and unknown commands fail clearly", async () => {
   const help = await executeCli(["help"]);
   assert.match(help, /agentreceipt start/);
+  assert.match(help, /agentreceipt finalize/);
   assert.match(help, /start\/finish workflow remains simulated/i);
 
   await assert.rejects(
     executeCli(["launch"]),
     (error) => error instanceof CliError && error.exitCode === 2 && /Unknown command/.test(error.message),
   );
+
+  await assert.rejects(
+    executeCli(["finalize", "--input"]),
+    (error) => error instanceof FinalizationError && error.code === "invalid_input",
+  );
+});
+
+test("partial acceptance warnings reflect the finalized receipt status", () => {
+  const complete = { capture: { status: "complete_for_declared_surface" } };
+  const partial = { capture: { status: "partial" } };
+
+  assert.equal(shouldWarnForAcceptedPartial(complete, true), false);
+  assert.equal(shouldWarnForAcceptedPartial(partial, false), false);
+  assert.equal(shouldWarnForAcceptedPartial(partial, true), true);
 });
 
 test("codex command writes a sanitized, schema-valid real capture receipt", async () => {
@@ -190,6 +209,10 @@ test("codex command writes a sanitized, schema-valid real capture receipt", asyn
       readRepositoryChanges: async () => [{
         path: "src/real-change.ts",
         change: "added",
+        additions: 0,
+        deletions: 0,
+        lineCountsKnown: false,
+        afterDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       }],
       runCodexCapture: async ({ prompt, sandbox }) => {
         assert.equal(prompt, promptSecret);
@@ -261,6 +284,8 @@ test("codex command writes a sanitized, schema-valid real capture receipt", asyn
     assert.equal(receipt.verification.status, "passed");
     assert.equal(receipt.files[0].path, "src/real-change.ts");
     assert.equal(receipt.files[0].line_counts_known, false);
+    assert.match(receipt.files[0].after_digest, /^sha256:[a-f0-9]{64}$/);
+    assert.equal(receipt.repository.binding_status, "draft");
     assert.equal(receipt.events.some((event) => event.details.command === "<redacted>"), true);
 
     const summary = await executeCli(["inspect"], codexDependencies);

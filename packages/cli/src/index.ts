@@ -7,6 +7,7 @@ import { assertReceipt, type AgentReceipt } from "@agentreceipt/schema";
 import { parseArguments, rejectUnknownOptions, stringOption } from "./args.js";
 import { createCodexReceipt } from "./codex.js";
 import { CliError } from "./errors.js";
+import { FinalizationError, finalizeReceipt, shouldWarnForAcceptedPartial } from "./finalize.js";
 import { formatReceipt } from "./format.js";
 import { readRepository, readRepositoryChanges } from "./git.js";
 import { createSimulatedReceipt } from "./simulation.js";
@@ -29,12 +30,14 @@ Usage:
   agentreceipt start --title <title> [--description <text>]
   agentreceipt finish [--result pass|fail] [--file <relative-path>] [--tests <count>]
   agentreceipt codex --title <title> --prompt <text> [--description <text>] [--sandbox read-only|workspace-write] [--verify <command>]
+  agentreceipt finalize --input <draft.json> --output <finalized.json> [--allow-partial]
   agentreceipt inspect [receipt.json] [--json]
 
 Commands:
   start    Begin a simulated recording in the current Git repository.
   finish   Generate and validate a simulated receipt, then archive the session.
   codex    Run one wrapped Codex exec JSONL session and create a privacy-safe receipt.
+  finalize Bind a committed draft receipt to the checked-out GitHub event head.
   inspect  Show the active session or the latest completed receipt.
 
 The start/finish workflow remains simulated. The codex command requires a clean Git worktree,
@@ -45,6 +48,7 @@ never claims capture beyond the wrapped Codex JSONL surface.
 function defaultDependencies(): CliDependencies {
   return {
     cwd: process.cwd(),
+    environment: process.env,
     now: () => new Date(),
     randomUUID,
     readRepository,
@@ -90,7 +94,7 @@ async function startCommand(
       owner: repository.owner,
       name: repository.name,
       branch: repository.branch,
-      base_sha: repository.headSha,
+      capture_start_sha: repository.headSha,
     },
     limitations: [
       "This session uses generated events and is not connected to Codex.",
@@ -236,6 +240,45 @@ async function codexCommand(
   ].join("\n");
 }
 
+async function finalizeCommand(
+  parsed: ReturnType<typeof parseArguments>,
+  dependencies: CliDependencies,
+): Promise<string> {
+  let inputPath: string;
+  let outputPath: string;
+  let allowPartialOption: string | true | undefined;
+  try {
+    rejectUnknownOptions(parsed, ["input", "output", "allow-partial"]);
+    requireNoPositionals(parsed.positionals, "finalize");
+    inputPath = stringOption(parsed, "input", { required: true })!;
+    outputPath = stringOption(parsed, "output", { required: true })!;
+    allowPartialOption = parsed.options.get("allow-partial");
+    if (allowPartialOption !== undefined && allowPartialOption !== true) {
+      throw new CliError("Invalid boolean option.", 2);
+    }
+  } catch {
+    throw new FinalizationError("invalid_input");
+  }
+
+  const result = await finalizeReceipt({
+    cwd: dependencies.cwd,
+    inputPath,
+    outputPath,
+    allowPartial: allowPartialOption === true,
+    environment: dependencies.environment,
+    now: dependencies.now,
+  });
+
+  return [
+    "Finalized AgentReceipt successfully.",
+    `Output: ${result.outputPath}`,
+    ...(shouldWarnForAcceptedPartial(result.receipt, allowPartialOption === true)
+      ? ["Warning: partial capture was explicitly accepted."]
+      : []),
+    "",
+  ].join("\n");
+}
+
 function formatActiveSession(session: ActiveSession): string {
   return [
     "SIMULATED RECORDING ACTIVE",
@@ -283,7 +326,13 @@ export async function executeCli(
   args: string[],
   overrides: Partial<CliDependencies> = {},
 ): Promise<string> {
-  const parsed = parseArguments(args);
+  let parsed: ReturnType<typeof parseArguments>;
+  try {
+    parsed = parseArguments(args);
+  } catch (error) {
+    if (args[0] === "finalize") throw new FinalizationError("invalid_input");
+    throw error;
+  }
   const dependencies = withDependencies(overrides);
 
   switch (parsed.command) {
@@ -298,6 +347,8 @@ export async function executeCli(
       return finishCommand(parsed, dependencies);
     case "codex":
       return codexCommand(parsed, dependencies);
+    case "finalize":
+      return finalizeCommand(parsed, dependencies);
     case "inspect":
       return inspectCommand(parsed, dependencies);
     default:
@@ -306,6 +357,8 @@ export async function executeCli(
 }
 
 export { CliError } from "./errors.js";
+export { FinalizationError, finalizeReceipt } from "./finalize.js";
+export type { FinalizationErrorCode, FinalizeReceiptOptions, FinalizeReceiptResult } from "./finalize.js";
 export { readRepository, readRepositoryChanges } from "./git.js";
 export { runVerification } from "./verification.js";
 export type {

@@ -25,6 +25,19 @@ const binding = {
 
 async function fixture() {
   const receipt = JSON.parse(await readFile(fixturePath, "utf8"));
+  const draftDigest = computeReceiptContentDigest(receipt);
+  receipt.repository = {
+    ...receipt.repository,
+    binding_status: "finalized",
+    base_sha: BASE,
+    head_sha: HEAD,
+  };
+  receipt.finalization = {
+    method: "github_event",
+    event: "pull_request",
+    draft_content_digest: draftDigest,
+    finalized_at: "2026-07-17T22:01:00Z",
+  };
   receipt.integrity = {
     algorithm: "sha256",
     canonicalization: "RFC8785",
@@ -59,8 +72,17 @@ test("a valid, bound, complete receipt passes every check", async () => {
     });
 
     assert.equal(report.passed, true);
-    assert.deepEqual(report.checks.map((entry) => entry.status), ["pass", "pass", "pass", "pass", "pass"]);
+    assert.deepEqual(report.checks.map((entry) => entry.status), ["pass", "pass", "pass", "pass", "pass", "pass"]);
   });
+});
+
+test("a schema-valid draft receipt fails finalized lifecycle binding", async () => {
+  const draft = JSON.parse(await readFile(fixturePath, "utf8"));
+  draft.integrity.content_digest = computeReceiptContentDigest(draft);
+  const report = validateLoadedReceipt(draft, binding, false);
+  assert.equal(report.passed, false);
+  assert.equal(report.checks.find((entry) => entry.name === "finalization")?.status, "fail");
+  assert.equal(report.checks.find((entry) => entry.name === "repository_binding")?.status, "fail");
 });
 
 test("content tampering is rejected by independent digest verification", async () => {
@@ -214,5 +236,65 @@ test("push binding uses GITHUB_SHA and a meaningful before SHA", async () => {
       headSha: HEAD,
       baseSha: BASE,
     });
+  });
+});
+
+test("GitHub context accepts only SHA-1 or SHA-256 object ID lengths", async () => {
+  await withWorkspace(async ({ workspace }) => {
+    const eventPath = join(workspace, "event.json");
+    await writeFile(eventPath, "{}", "utf8");
+    const environment = {
+      GITHUB_EVENT_NAME: "workflow_dispatch",
+      GITHUB_REPOSITORY: "example/api-service",
+      GITHUB_EVENT_PATH: eventPath,
+    };
+
+    for (const length of [40, 64]) {
+      const headSha = "a".repeat(length);
+      const derived = await bindingFromEnvironment({ ...environment, GITHUB_SHA: headSha });
+      assert.equal(derived.headSha, headSha);
+    }
+
+    for (const length of [39, 41, 63, 65]) {
+      await assert.rejects(
+        bindingFromEnvironment({ ...environment, GITHUB_SHA: "a".repeat(length) }),
+        (error) => error.code === "invalid_github_context",
+      );
+    }
+  });
+});
+
+test("new-branch push and workflow-dispatch receipts require an absent review base", async () => {
+  for (const eventName of ["push", "workflow_dispatch"]) {
+    const receipt = await fixture();
+    delete receipt.repository.base_sha;
+    receipt.finalization.event = eventName;
+    receipt.integrity.content_digest = computeReceiptContentDigest(receipt);
+    const eventBinding = {
+      owner: "example",
+      name: "api-service",
+      eventName,
+      headSha: HEAD,
+    };
+    assert.equal(validateLoadedReceipt(receipt, eventBinding, false).passed, true);
+
+    receipt.repository.base_sha = BASE;
+    receipt.integrity.content_digest = computeReceiptContentDigest(receipt);
+    assert.equal(validateLoadedReceipt(receipt, eventBinding, false).passed, false);
+  }
+});
+
+test("pull_request_target and unknown events are rejected", async () => {
+  await withWorkspace(async ({ workspace }) => {
+    const eventPath = join(workspace, "event.json");
+    await writeFile(eventPath, "{}", "utf8");
+    for (const eventName of ["pull_request_target", "issues"]) {
+      await assert.rejects(bindingFromEnvironment({
+        GITHUB_EVENT_NAME: eventName,
+        GITHUB_REPOSITORY: "example/api-service",
+        GITHUB_EVENT_PATH: eventPath,
+        GITHUB_SHA: HEAD,
+      }), (error) => error.code === "unsupported_event");
+    }
   });
 });

@@ -25,8 +25,9 @@
     "owner": "example",
     "name": "accounts",
     "branch": "fix/expired-reset-token",
-    "base_sha": "3333333333333333333333333333333333333333",
-    "head_sha": "4444444444444444444444444444444444444444"
+    "binding_status": "draft",
+    "capture_start_sha": "3333333333333333333333333333333333333333",
+    "capture_end_sha": "4444444444444444444444444444444444444444"
   },
   "capture": {
     "adapter": "agentreceipt-codex",
@@ -131,6 +132,7 @@
       "change": "modified",
       "additions": 9,
       "deletions": 2,
+      "line_counts_known": true,
       "before_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
       "after_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
     },
@@ -139,6 +141,7 @@
       "change": "modified",
       "additions": 21,
       "deletions": 0,
+      "line_counts_known": true,
       "before_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "after_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     }
