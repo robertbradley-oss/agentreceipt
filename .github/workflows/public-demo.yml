@@ -1,0 +1,54 @@
+name: AgentReceipt public demo
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  finalize-and-validate:
+    name: Finalize and validate receipt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out pull-request head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build AgentReceipt
+        run: pnpm build
+
+      - name: Finalize draft against pull-request event
+        run: >-
+          node packages/cli/dist/src/bin.js finalize
+          --input demo/receipt-draft.json
+          --output .agentreceipt/finalized/receipt.json
+
+      - name: Validate finalized receipt
+        uses: ./packages/github-action
+        with:
+          receipt-path: .agentreceipt/finalized/receipt.json
+          allow-partial: "false"
+
+      - name: Add safe receipt summary
+        shell: bash
+        run: node packages/cli/dist/src/bin.js inspect .agentreceipt/finalized/receipt.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload finalized receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agentreceipt-finalized
+          path: .agentreceipt/finalized/receipt.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
