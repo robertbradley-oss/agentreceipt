@@ -583,16 +583,6 @@ async function validateOutputPath(workspace: string, outputPath: string, root: s
   if (!pathIsWithin(workspace, candidate)) throw new FinalizationError("unsafe_output_path");
   if (await exists(candidate)) throw new FinalizationError("output_exists");
 
-  const ignored = await runGitStatus(root, ["check-ignore", "-q", "--", outputPath]);
-  if (ignored === 1) throw new FinalizationError("unsafe_output_path");
-  if (ignored !== 0) throw new FinalizationError("git_history_unavailable");
-  if ((await runGitRaw(root, ["ls-files", "--stage", "--", outputPath])).trim() !== "") {
-    throw new FinalizationError("unsafe_output_path");
-  }
-  if ((await runGitRaw(root, ["ls-tree", "-z", "HEAD", "--", outputPath])).length !== 0) {
-    throw new FinalizationError("unsafe_output_path");
-  }
-
   let ancestor = dirname(candidate);
   while (!(await exists(ancestor))) {
     const parent = dirname(ancestor);
@@ -602,6 +592,16 @@ async function validateOutputPath(workspace: string, outputPath: string, root: s
   const stats = await lstat(ancestor);
   const ancestorRealPath = await realpath(ancestor);
   if (stats.isSymbolicLink() || !stats.isDirectory() || !pathIsWithin(workspace, ancestorRealPath)) {
+    throw new FinalizationError("unsafe_output_path");
+  }
+
+  const ignored = await runGitStatus(root, ["check-ignore", "-q", "--", outputPath]);
+  if (ignored === 1) throw new FinalizationError("unsafe_output_path");
+  if (ignored !== 0) throw new FinalizationError("git_history_unavailable");
+  if ((await runGitRaw(root, ["ls-files", "--stage", "--", outputPath])).trim() !== "") {
+    throw new FinalizationError("unsafe_output_path");
+  }
+  if ((await runGitRaw(root, ["ls-tree", "-z", "HEAD", "--", outputPath])).length !== 0) {
     throw new FinalizationError("unsafe_output_path");
   }
 }
