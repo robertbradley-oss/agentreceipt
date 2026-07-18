@@ -1,1 +1,1 @@
-Hello from the AgentReceipt public demo, verified on GitHub.
+Hello from the AgentReceipt public demo, ready to publish.

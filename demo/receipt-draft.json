@@ -1,16 +1,16 @@
 {
   "schema_version": "0.1",
-  "receipt_id": "4db8a61b-0610-4542-a373-d86569f4461f",
-  "created_at": "2026-07-18T14:54:36.156Z",
+  "receipt_id": "92637439-6470-427b-9493-fc35b61e185c",
+  "created_at": "2026-07-18T15:05:52.108Z",
   "task": {
-    "title": "Refresh the harmless public demo file",
-    "description": "Modify one harmless text file so the public receipt binds to the corrected pull-request head.",
+    "title": "Finalize the publishable public demo",
+    "description": "Modify one harmless text file so the final public receipt binds to the durable README and workflow polish.",
     "source": "user"
   },
   "session": {
-    "id": "61b17c34-aeb4-4dde-9dd8-f51584ee515e",
-    "started_at": "2026-07-18T14:54:06.418Z",
-    "ended_at": "2026-07-18T14:54:36.156Z",
+    "id": "5e789d1a-3d3b-4744-bfca-37f5eed89480",
+    "started_at": "2026-07-18T15:05:32.349Z",
+    "ended_at": "2026-07-18T15:05:52.108Z",
     "status": "completed"
   },
   "agent": {
@@ -23,8 +23,8 @@
     "name": "agentreceipt",
     "branch": "codex/public-demo",
     "binding_status": "draft",
-    "capture_start_sha": "1b68eb8f1344076324b190adbce657d08118b2ae",
-    "capture_end_sha": "1b68eb8f1344076324b190adbce657d08118b2ae"
+    "capture_start_sha": "15810d0fa57bedd23f1fca99460f178dc944d6fb",
+    "capture_end_sha": "15810d0fa57bedd23f1fca99460f178dc944d6fb"
   },
   "capture": {
     "adapter": "agentreceipt-codex-exec",
@@ -105,7 +105,7 @@
     {
       "id": "evt_codex_000000",
       "sequence": 0,
-      "timestamp": "2026-07-18T14:54:06.418Z",
+      "timestamp": "2026-07-18T15:05:32.349Z",
       "type": "session",
       "outcome": "started",
       "summary": "Wrapped Codex receipt capture started.",
@@ -114,10 +114,10 @@
         "source_event": "adapter",
         "time_basis": "adapter_observed"
       },
-      "evidence_digest": "sha256:028503370d78d2129948bf93f270bd3ef492dc6ce943d20cd133947ff73e128a"
+      "evidence_digest": "sha256:7fa29f36cb7280c1613e408bc2c765d9d78bba9951c34f3783c114f27578152d"
     },
     {
-      "timestamp": "2026-07-18T14:54:16.517Z",
+      "timestamp": "2026-07-18T15:05:36.976Z",
       "type": "command",
       "outcome": "started",
       "summary": "Codex started a command; command text and output were discarded.",
@@ -128,10 +128,10 @@
       },
       "id": "evt_codex_000001",
       "sequence": 1,
-      "evidence_digest": "sha256:d739f19f95fc744c4273143754fea5bb1283e04de5c792f0fdbef145adb47ad7"
+      "evidence_digest": "sha256:f795895e08842be6f6ab85a176c1e9b8a414d2c0da9b3a5deee61c8a4b074d7c"
     },
     {
-      "timestamp": "2026-07-18T14:54:17.214Z",
+      "timestamp": "2026-07-18T15:05:37.604Z",
       "type": "command",
       "outcome": "succeeded",
       "summary": "Codex completed a command; command text and output were discarded.",
@@ -143,10 +143,10 @@
       },
       "id": "evt_codex_000002",
       "sequence": 2,
-      "evidence_digest": "sha256:212e8cc14b634293eac9842d0cd522a8086814356375fb127e87d54e6d458c9c"
+      "evidence_digest": "sha256:73134ceb9f3688f18ff7e23937f6954af08568e5f377e0cbc02e5e41742be680"
     },
     {
-      "timestamp": "2026-07-18T14:54:21.226Z",
+      "timestamp": "2026-07-18T15:05:40.360Z",
       "type": "tool",
       "outcome": "started",
       "summary": "Codex started a codex-file-change event; sensitive content was discarded.",
@@ -157,10 +157,10 @@
       },
       "id": "evt_codex_000003",
       "sequence": 3,
-      "evidence_digest": "sha256:21d77a824c32089b681c01eba968ffa3774d88a73ed240ce3cfa8c093c1522e5"
+      "evidence_digest": "sha256:31311f3c45e0ca045a2ba3a9e78dae6f912b722c476ad373a8a1b71a4c7d2ae8"
     },
     {
-      "timestamp": "2026-07-18T14:54:21.914Z",
+      "timestamp": "2026-07-18T15:05:40.901Z",
       "type": "tool",
       "outcome": "succeeded",
       "summary": "Codex completed a codex-file-change event; sensitive content was discarded.",
@@ -171,10 +171,10 @@
       },
       "id": "evt_codex_000004",
       "sequence": 4,
-      "evidence_digest": "sha256:521391fab4c25c7f1029d6082bd64f1d3075aba0c54b0afcc8927993bd25b8ba"
+      "evidence_digest": "sha256:e2f4109eeeb4e8cf91e311bfd4da0952e54bd3cb5450a02d98e66dfe48cbf805"
     },
     {
-      "timestamp": "2026-07-18T14:54:26.377Z",
+      "timestamp": "2026-07-18T15:05:43.652Z",
       "type": "command",
       "outcome": "started",
       "summary": "Codex started a command; command text and output were discarded.",
@@ -185,10 +185,10 @@
       },
       "id": "evt_codex_000005",
       "sequence": 5,
-      "evidence_digest": "sha256:8f411a776f884a2318da21e37289a4869867b1af338b039b7354f3468d699ccf"
+      "evidence_digest": "sha256:fbf2cce713c559d1540605880f2a99acb13148e81788b2e1834fa32d586caac5"
     },
     {
-      "timestamp": "2026-07-18T14:54:26.779Z",
+      "timestamp": "2026-07-18T15:05:43.990Z",
       "type": "command",
       "outcome": "succeeded",
       "summary": "Codex completed a command; command text and output were discarded.",
@@ -200,43 +200,43 @@
       },
       "id": "evt_codex_000006",
       "sequence": 6,
-      "evidence_digest": "sha256:e64eb5e56734888950d0f9d396750cf143153e8fe53fd782f4bd70997b7fc1bb"
+      "evidence_digest": "sha256:0d93c778214523b13c8f78e28aaacce130a2f0d3fa9b2bec9a7a2198db2efa14"
     },
     {
       "id": "evt_codex_000007",
       "sequence": 7,
-      "timestamp": "2026-07-18T14:54:35.676Z",
+      "timestamp": "2026-07-18T15:05:51.756Z",
       "type": "command",
       "outcome": "succeeded",
       "summary": "An independently executed verification command completed; command text and output were discarded.",
-      "duration_ms": 5310,
+      "duration_ms": 4852,
       "details": {
         "command": "<redacted authorized verification command>",
         "exit_code": 0,
         "source_event": "verification",
         "time_basis": "adapter_observed"
       },
-      "evidence_digest": "sha256:cfeb65c8a3d2624f949b47169f77878dcc63d34dc2ed3170f2d0da6eb17e5060"
+      "evidence_digest": "sha256:04ef4016a48f423c7c9e4e831f39a5577d77bd4a21f8cbc8d86ea8069fc3a0f9"
     },
     {
       "id": "evt_codex_000008",
       "sequence": 8,
-      "timestamp": "2026-07-18T14:54:36.156Z",
+      "timestamp": "2026-07-18T15:05:52.108Z",
       "type": "git",
       "outcome": "info",
       "summary": "AgentReceipt independently recorded the repository state after the wrapped run.",
       "details": {
         "git_action": "diff",
-        "commit_sha": "1b68eb8f1344076324b190adbce657d08118b2ae",
+        "commit_sha": "15810d0fa57bedd23f1fca99460f178dc944d6fb",
         "source_event": "git",
         "time_basis": "adapter_observed"
       },
-      "evidence_digest": "sha256:ae0c44c9b4c386253eabf00629c158bc8da459c80cc6f2cb28843a3626c66344"
+      "evidence_digest": "sha256:c347539832465dea69dba72e8952c484865c2a878bc17579e462846f779ee5fd"
     },
     {
       "id": "evt_codex_000009",
       "sequence": 9,
-      "timestamp": "2026-07-18T14:54:36.156Z",
+      "timestamp": "2026-07-18T15:05:52.108Z",
       "type": "session",
       "outcome": "succeeded",
       "summary": "Wrapped Codex receipt capture finished.",
@@ -245,7 +245,7 @@
         "source_event": "adapter",
         "time_basis": "adapter_observed"
       },
-      "evidence_digest": "sha256:eaf8a9e41f24151cb0eb63867cfdca42ffabf1fba67b37bd42254af3d7f35bf6"
+      "evidence_digest": "sha256:c12dc1242cb9c2e31e41a13c13e409d211e74d35a1c394e74c438481f7acd0fa"
     }
   ],
   "files": [
@@ -255,8 +255,8 @@
       "additions": 0,
       "deletions": 0,
       "line_counts_known": false,
-      "before_digest": "sha256:575d7888eb371b7d1bdc680d0d193e84448d72ff40aece02269147cc5e4df150",
-      "after_digest": "sha256:8af94875c82d93f9a57bb7f2dd1aa945773984d061dc4fe999f3463fe6863950"
+      "before_digest": "sha256:8af94875c82d93f9a57bb7f2dd1aa945773984d061dc4fe999f3463fe6863950",
+      "after_digest": "sha256:273e8c11b340e8c44a1d7c67ffc338d56244960a76a284be632edea9dcb3f318"
     }
   ],
   "verification": {
@@ -277,11 +277,11 @@
   "extensions": {
     "dev.agentreceipt.codex-exec": {
       "usage": {
-        "input_tokens": 66273,
-        "cached_input_tokens": 32256,
+        "input_tokens": 66164,
+        "cached_input_tokens": 48384,
         "cache_write_input_tokens": 0,
-        "output_tokens": 542,
-        "reasoning_output_tokens": 141
+        "output_tokens": 421,
+        "reasoning_output_tokens": 92
       },
       "process_exit_code": 0
     }
@@ -289,6 +289,6 @@
   "integrity": {
     "algorithm": "sha256",
     "canonicalization": "RFC8785",
-    "content_digest": "sha256:af15705997bc0a8679df3c9892c8644c7e4c097592affa52b1c468e891b170e5"
+    "content_digest": "sha256:7e6f6f476a375c33dd41c9dc8ee2357f29418351bbb78aca8259f9a02bf23115"
   }
 }
