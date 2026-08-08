@@ -49,6 +49,12 @@ The unchanged repair harness made exactly one live AgentReceipt-owned Codex atte
 
 The attempt did not reach learning, dry run, replay, verification, digest-chain validation, or measurement. The safe classification establishes only that the current observed run did not satisfy capsule eligibility; it does not establish that the July event-shape classification remained the cause. No retry or eligibility weakening followed. The harness removed its disposable repository on failure, the temporary CLI installation was removed, the real workspace gained no `.agentreceipt` artifacts, and tracked repository state remained unchanged.
 
+## Same-attempt diagnostic hardening
+
+After the August allowance was consumed, the CLI gained an optional programmatic callback that reduces its already-private projection diagnostic to one fixed allowlisted classification. The callback is invoked only around capsule creation or eligibility rejection, carries no raw values, is absent from the default CLI, writes no artifact, and cannot change execution if callback code fails. The Phase 4 harness now receives that category from the same AgentReceipt CLI attempt over a validated Node IPC message while retaining its existing child-process timeout and exact standard-error classifier.
+
+This hardening was implemented and tested offline. No additional Codex/model attempt was made, so it does not retroactively identify the August failure and does not establish that a future attempt will create a capsule. A future separately authorized one-attempt validation can now report `capture_diagnostic` alongside the fixed `capsule_ineligible` code without making a second diagnostic model call.
+
 ## Completion criteria
 
 | Criterion | Direct evidence | Outcome |
@@ -148,6 +154,14 @@ Approved bounded revalidation evidence on 2026-08-07:
 | `node packages/cli/test/phase-4-measured-validation.mjs --diagnose-capture --max-live-runs=0` with isolated Codex CLI `0.147.0` | Exit 0; version, existing login, JSON, ephemeral, and sandbox checks passed; `live_attempts: 0`. |
 | `node packages/cli/test/phase-4-measured-validation.mjs --repair-live-codex --max-live-runs=1` with isolated Codex CLI `0.147.0` | Exit 1; safe aggregate stopped at `live_capture` with `capsule_ineligible`, `live_attempts: 1`, and `comparison_available: false`. |
 | Post-run cleanup and workspace inspection | No Phase 4 disposable directory, temporary CLI, or workspace `.agentreceipt` artifact remained; tracked workspace state was unchanged. |
+
+Offline same-attempt diagnostic evidence added after the bounded revalidation:
+
+| Command or check | Observed outcome |
+|---|---|
+| `node --test packages/cli/test/safe-capture-diagnostic.test.mjs` | Exit 0; enum classification, invalid-shape collapse, callback isolation, fixed failure behavior, and private canary non-disclosure passed. |
+| `node --check packages/cli/test/phase-4-measured-validation.mjs` and helper syntax check | Exit 0; the updated harness and instrumented child were syntactically valid. |
+| Instrumented IPC self-check in repair preflight | Implemented as a zero-model preflight; it requires one exact fixed failure plus one allowlisted diagnostic message before any future live attempt. |
 
 ## Privacy and limitations
 

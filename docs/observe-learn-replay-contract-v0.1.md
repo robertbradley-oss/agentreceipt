@@ -88,6 +88,10 @@ Before writing, AgentReceipt MUST prove that the destination is repository-local
 
 A capsule MUST never be committed, staged, finalized, uploaded, attached to a public receipt, copied into a fixture, or included in diagnostic output. The CLI may print only a fixed success or failure message and the safe repository-relative path.
 
+An explicitly instrumented in-process caller MAY provide a safe capture diagnostic callback. The callback receives exactly one allowlisted classification string after capsule creation or a capsule eligibility rejection; it receives no raw event, prompt, command, output, path, identifier, parameter, environment value, or caught exception text. The default CLI provides no callback, and classifications MUST NOT be printed, added to receipts or private artifacts, or written to a diagnostic file. Callback failure MUST be ignored and MUST NOT affect capture, eligibility, persistence, or the CLI result.
+
+The callback allowlist is limited to `capsule_created`, `projection_eligible`, `capture_failed`, `secret_material`, `allowlisted_command_embedded`, `unsupported_command_shape`, `unsupported_event_shape`, `lifecycle_ineligible`, `command_failed`, `parameter_unused`, `no_action`, `other_ineligible`, `post_capture_ineligible`, and `invalid_private_diagnostic`. Runtime diagnostic data that is unknown, unsorted, duplicated, or unbounded MUST collapse to `invalid_private_diagnostic` rather than being forwarded.
+
 Capsules are retained locally by default. A future Phase 2 `learn` option may delete the exact source capsule only after the new recipe has been atomically written, re-read, and validated. Deletion MUST be explicit, path-bounded, and off by default.
 
 ### Eligibility
@@ -337,6 +341,8 @@ Wall-time comparisons MUST state the measured boundaries, environment, repositor
 ## Safe failure contract
 
 Errors MUST use fixed safe codes and descriptions. Caught exception text, command text, paths containing personal data, capsule or recipe content, parameter values, and process output MUST NOT be echoed.
+
+The optional in-process safe capture classification is additional bounded control-plane evidence, not error detail, capsule content, or authority to relax an eligibility rule. It does not identify raw material and cannot establish that an unsupported shape is safe.
 
 The first implementation should use stable categories including:
 

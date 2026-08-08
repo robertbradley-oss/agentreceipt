@@ -24,6 +24,10 @@ import { listPrivateJson, readPrivateJson, sourceReceiptDigestExists, writePriva
 import { createPrivateCapsule, createRecipe, RecipeError, validatePrivateCapsule } from "./recipe.js";
 import { replayRecipe } from "./replay.js";
 import { createRunbackRelease, planLocalRunback } from "./runback.js";
+import {
+  classifyPrivateCapture,
+  type SafeCaptureDiagnosticClassification,
+} from "./safe-capture-diagnostic.js";
 import { createSimulatedReceipt } from "./simulation.js";
 import {
   createActiveSession,
@@ -82,6 +86,18 @@ function defaultDependencies(): CliDependencies {
 
 function withDependencies(overrides: Partial<CliDependencies>): CliDependencies {
   return { ...defaultDependencies(), ...overrides };
+}
+
+function reportSafeCaptureDiagnostic(
+  dependencies: CliDependencies,
+  classification: SafeCaptureDiagnosticClassification,
+): void {
+  try {
+    const pending = dependencies.onSafeCaptureDiagnostic?.(classification);
+    if (pending && typeof pending.catch === "function") void pending.catch(() => undefined);
+  } catch {
+    // Diagnostics are observational and must never alter CLI execution.
+  }
 }
 
 const PARAMETER_NAME = /^[A-Z][A-Z0-9_]{0,63}$/;
@@ -311,6 +327,9 @@ async function codexCommand(
         parameters: parameterInputs,
       })
     : undefined;
+  const privateCaptureClassification = privateRun
+    ? classifyPrivateCapture(privateRun.capture, privateRun.private_projection)
+    : undefined;
   const capture = privateRun?.capture ?? await dependencies.runCodexCapture({
     cwd: repositoryBefore.root,
     prompt,
@@ -365,49 +384,69 @@ async function codexCommand(
     additionalLimitations: gitLimitations,
   });
   const receiptPath = await writeCompletedReceipt(repositoryBefore.root, receiptId, receipt);
-  if (capsuleEnabled && gitLimitations.length > 0) throw new RecipeError("capsule_ineligible");
   let capsulePath: string | undefined;
-  if (capsuleEnabled && privateRun && verification && verificationFile && verificationFileDigest) {
-    const fileDigests = new Map<string, `sha256:${string}`>();
-    for (const action of privateRun.private_projection.actions) {
-      for (const filePath of action.file_paths) {
-        if (!fileDigests.has(filePath)) {
-          if (!await isTrackedRepositoryFile(repositoryBefore.root, filePath)) {
-            throw new RecipeError("capsule_ineligible");
+  if (capsuleEnabled && privateRun) {
+    try {
+      if (gitLimitations.length > 0 || !verification || !verificationFile || !verificationFileDigest) {
+        throw new RecipeError("capsule_ineligible");
+      }
+      const fileDigests = new Map<string, `sha256:${string}`>();
+      for (const action of privateRun.private_projection.actions) {
+        for (const filePath of action.file_paths) {
+          if (!fileDigests.has(filePath)) {
+            if (!await isTrackedRepositoryFile(repositoryBefore.root, filePath)) {
+              throw new RecipeError("capsule_ineligible");
+            }
+            fileDigests.set(filePath, await hashRepositoryFile(repositoryBefore.root, filePath));
           }
-          fileDigests.set(filePath, await hashRepositoryFile(repositoryBefore.root, filePath));
         }
       }
+      if (!await isTrackedRepositoryFile(repositoryBefore.root, verificationFile)) {
+        throw new RecipeError("capsule_ineligible");
+      }
+      const capsuleRepositoryAfter = await dependencies.readRepository(repositoryBefore.root).catch(() => {
+        throw new RecipeError("capsule_ineligible");
+      });
+      const capsuleId = dependencies.randomUUID();
+      const receiptDigest = (receipt as unknown as {
+        integrity: { content_digest: `sha256:${string}` };
+      }).integrity.content_digest;
+      const capsule = createPrivateCapsule({
+        capsuleId,
+        createdAt: endedAt,
+        elapsedMs: Math.max(0, endedAt.getTime() - startedAt.getTime()),
+        sourceReceiptContentDigest: receiptDigest,
+        repositoryBefore,
+        repositoryAfter: capsuleRepositoryAfter,
+        capture,
+        projection: privateRun.private_projection,
+        executableVersion: await readGitExecutableVersion(repositoryBefore.root),
+        fileDigests,
+        verification: {
+          ...verification,
+          path: verificationFile,
+          digest: verificationFileDigest,
+        },
+      });
+      capsulePath = `.agentreceipt/private/capsules/${capsuleId}.json`;
+      await writePrivateJson(repositoryBefore.root, capsulePath, "capsule", capsule);
+      reportSafeCaptureDiagnostic(
+        dependencies,
+        privateCaptureClassification === "invalid_private_diagnostic"
+          ? privateCaptureClassification
+          : "capsule_created",
+      );
+    } catch (error) {
+      if (error instanceof RecipeError) {
+        const classification = error.code === "secret_material_detected"
+          ? "secret_material"
+          : privateCaptureClassification === "projection_eligible"
+            ? "post_capture_ineligible"
+            : privateCaptureClassification ?? "post_capture_ineligible";
+        reportSafeCaptureDiagnostic(dependencies, classification);
+      }
+      throw error;
     }
-    if (!await isTrackedRepositoryFile(repositoryBefore.root, verificationFile)) {
-      throw new RecipeError("capsule_ineligible");
-    }
-    const capsuleRepositoryAfter = await dependencies.readRepository(repositoryBefore.root).catch(() => {
-      throw new RecipeError("capsule_ineligible");
-    });
-    const capsuleId = dependencies.randomUUID();
-    const receiptDigest = (receipt as unknown as {
-      integrity: { content_digest: `sha256:${string}` };
-    }).integrity.content_digest;
-    const capsule = createPrivateCapsule({
-      capsuleId,
-      createdAt: endedAt,
-      elapsedMs: Math.max(0, endedAt.getTime() - startedAt.getTime()),
-      sourceReceiptContentDigest: receiptDigest,
-      repositoryBefore,
-      repositoryAfter: capsuleRepositoryAfter,
-      capture,
-      projection: privateRun.private_projection,
-      executableVersion: await readGitExecutableVersion(repositoryBefore.root),
-      fileDigests,
-      verification: {
-        ...verification,
-        path: verificationFile,
-        digest: verificationFileDigest,
-      },
-    });
-    capsulePath = `.agentreceipt/private/capsules/${capsuleId}.json`;
-    await writePrivateJson(repositoryBefore.root, capsulePath, "capsule", capsule);
   }
   const view = receipt as unknown as { capture: { status: string } };
 
@@ -649,6 +688,12 @@ export { readRepository, readRepositoryChanges } from "./git.js";
 export { runVerification } from "./verification.js";
 export { replayRecipe, ReplayError } from "./replay.js";
 export { createRunbackRelease, planLocalRunback } from "./runback.js";
+export {
+  classifyPrivateCapture,
+  isSafeCaptureDiagnosticClassification,
+  SAFE_CAPTURE_DIAGNOSTIC_CLASSIFICATIONS,
+} from "./safe-capture-diagnostic.js";
+export type { SafeCaptureDiagnosticClassification } from "./safe-capture-diagnostic.js";
 export {
   createPrivateCapsule,
   createRecipe,
