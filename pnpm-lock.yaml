@@ -17,6 +17,9 @@ importers:
       '@agentreceipt/codex-adapter':
         specifier: workspace:*
         version: link:../codex-adapter
+      '@agentreceipt/runback':
+        specifier: workspace:*
+        version: link:../runback
       '@agentreceipt/schema':
         specifier: workspace:*
         version: link:../schema
@@ -46,6 +49,12 @@ importers:
       '@vercel/ncc':
         specifier: ^0.38.4
         version: 0.38.4
+
+  packages/runback:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.0
+        version: 24.13.3
 
   packages/schema:
     dependencies:

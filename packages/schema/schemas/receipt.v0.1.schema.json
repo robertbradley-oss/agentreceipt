@@ -355,7 +355,7 @@
         },
         "surface": {
           "type": "string",
-          "enum": ["simulator", "codex_exec_jsonl"]
+          "enum": ["simulator", "codex_exec_jsonl", "agentreceipt_recipe_replay"]
         },
         "status": {
           "type": "string",

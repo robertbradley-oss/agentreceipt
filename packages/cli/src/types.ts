@@ -1,4 +1,9 @@
-import type { CodexCaptureResult, CodexRunOptions } from "@agentreceipt/codex-adapter";
+import type {
+  CodexCaptureResult,
+  CodexCaptureWithPrivateProjection,
+  CodexPrivateRunOptions,
+  CodexRunOptions,
+} from "@agentreceipt/codex-adapter";
 
 export interface RepositoryFileChange {
   path: string;
@@ -55,5 +60,8 @@ export interface CliDependencies {
   readRepository: (cwd: string) => Promise<RepositorySnapshot>;
   readRepositoryChanges: (root: string, baseSha: string) => Promise<RepositoryFileChange[]>;
   runCodexCapture: (options: CodexRunOptions) => Promise<CodexCaptureResult>;
+  runCodexCaptureWithPrivateProjection: (
+    options: CodexPrivateRunOptions,
+  ) => Promise<CodexCaptureWithPrivateProjection>;
   runVerification: (command: string, cwd: string, now?: () => Date) => Promise<VerificationResult>;
 }

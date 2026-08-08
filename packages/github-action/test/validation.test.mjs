@@ -76,6 +76,24 @@ test("a valid, bound, complete receipt passes every check", async () => {
   });
 });
 
+test("a finalized replay receipt with digest-only binding passes shared validation", async () => {
+  const receipt = await fixture();
+  receipt.capture.adapter = "agentreceipt-replay";
+  receipt.capture.surface = "agentreceipt_recipe_replay";
+  receipt.extensions = {
+    "dev.agentreceipt.recipe-replay": {
+      recipe_digest: "sha256:" + "a".repeat(64),
+      source_receipt_content_digest: "sha256:" + "b".repeat(64),
+      mode: "executed",
+    },
+  };
+  receipt.integrity.content_digest = computeReceiptContentDigest(receipt);
+  const report = validateLoadedReceipt(receipt, binding, false);
+  assert.equal(report.passed, true);
+  assert.equal(report.checks.find((entry) => entry.name === "privacy")?.status, "pass");
+  assert.equal(report.checks.find((entry) => entry.name === "integrity")?.status, "pass");
+});
+
 test("a schema-valid draft receipt fails finalized lifecycle binding", async () => {
   const draft = JSON.parse(await readFile(fixturePath, "utf8"));
   draft.integrity.content_digest = computeReceiptContentDigest(draft);

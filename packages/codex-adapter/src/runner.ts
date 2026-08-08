@@ -3,7 +3,13 @@ import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
 import { CodexJsonlCapture } from "./parser.js";
-import type { CodexCaptureResult, CodexRunOptions } from "./types.js";
+import { CodexPrivateProjectionCapture } from "./capsule.js";
+import type {
+  CodexCaptureResult,
+  CodexCaptureWithPrivateProjection,
+  CodexPrivateRunOptions,
+  CodexRunOptions,
+} from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -26,7 +32,10 @@ async function readCliVersion(
   }
 }
 
-export async function runCodexCapture(options: CodexRunOptions): Promise<CodexCaptureResult> {
+async function runCapture(
+  options: CodexRunOptions,
+  privateProjection?: CodexPrivateProjectionCapture,
+): Promise<CodexCaptureWithPrivateProjection | { capture: CodexCaptureResult }> {
   const executable = options.executable ?? process.env.AGENTRECEIPT_CODEX_PATH ?? "codex";
   const argsPrefix = options.executableArgsPrefix ?? [];
   const now = options.now ?? (() => new Date());
@@ -35,7 +44,17 @@ export async function runCodexCapture(options: CodexRunOptions): Promise<CodexCa
 
   const child = spawn(
     executable,
-    [...argsPrefix, "exec", "--json", "--ephemeral", "--sandbox", options.sandbox, "-"],
+    [
+      ...argsPrefix,
+      "exec",
+      "--json",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--ignore-rules",
+      "--sandbox",
+      options.sandbox,
+      "-",
+    ],
     {
       cwd: options.cwd,
       windowsHide: true,
@@ -58,7 +77,9 @@ export async function runCodexCapture(options: CodexRunOptions): Promise<CodexCa
   if (child.stdout) {
     const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
     for await (const line of lines) {
-      parser.ingest(line, now());
+      const observedAt = now();
+      parser.ingest(line, observedAt);
+      privateProjection?.ingest(line, observedAt);
     }
   }
 
@@ -75,5 +96,21 @@ export async function runCodexCapture(options: CodexRunOptions): Promise<CodexCa
   if (spawnFailed) {
     result.limitations.push("The Codex executable could not be started.");
   }
-  return result;
+  return {
+    capture: result,
+    ...(privateProjection ? { private_projection: privateProjection.finish() } : {}),
+  };
+}
+
+export async function runCodexCapture(options: CodexRunOptions): Promise<CodexCaptureResult> {
+  return (await runCapture(options)).capture;
+}
+
+export async function runCodexCaptureWithPrivateProjection(
+  options: CodexPrivateRunOptions,
+): Promise<CodexCaptureWithPrivateProjection> {
+  return await runCapture(
+    options,
+    new CodexPrivateProjectionCapture(options.parameters ?? []),
+  ) as CodexCaptureWithPrivateProjection;
 }

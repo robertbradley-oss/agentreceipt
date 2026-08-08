@@ -29,3 +29,9 @@ export function canonicalizeJson(value: unknown): string {
 export function sha256(value: unknown): `sha256:${string}` {
   return `sha256:${createHash("sha256").update(canonicalizeJson(value)).digest("hex")}`;
 }
+
+export function sha256OmittingIntegrity(value: Record<string, unknown>): `sha256:${string}` {
+  const content = { ...value };
+  delete content.integrity;
+  return sha256(content);
+}

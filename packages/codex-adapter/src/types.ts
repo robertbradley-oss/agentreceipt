@@ -68,4 +68,89 @@ export interface CodexRunOptions {
   now?: () => Date;
 }
 
+export type CodexParameterInput =
+  | {
+      name: string;
+      sensitivity: "public";
+      value: string;
+    }
+  | {
+      name: string;
+      sensitivity: "secret";
+      value: string;
+      source_environment: string;
+      target_environment: string;
+    };
+
+export type CodexPrivateProjectionParameter =
+  | { name: string; sensitivity: "public" }
+  | {
+      name: string;
+      sensitivity: "secret";
+      source_environment: string;
+      target_environment: string;
+    };
+
+export interface CodexPrivateActionCandidate {
+  sequence: number;
+  kind: "process";
+  cwd: ".";
+  executable: "git";
+  arguments: string[];
+  environment_names: string[];
+  file_paths: string[];
+  read_only: true;
+  classifier_version: "0.1";
+  expected_exit_code: 0;
+  observed_exit_code: number;
+  duration_ms: number;
+}
+
+export type CodexPrivateCommandShape =
+  | "direct_allowlisted"
+  | "allowlisted_command_embedded"
+  | "unsupported";
+
+export type CodexPrivateIneligibilityReason =
+  | "malformed_record"
+  | "lifecycle_incomplete"
+  | "turn_failed"
+  | "unknown_event"
+  | "unsupported_item"
+  | "unsupported_command_shape"
+  | "allowlisted_command_embedded"
+  | "secret_material"
+  | "parameter_unused"
+  | "command_failed"
+  | "no_action";
+
+export interface CodexPrivateProjectionDiagnostic {
+  command_shapes: CodexPrivateCommandShape[];
+  ineligibility_reasons: CodexPrivateIneligibilityReason[];
+  action_count: number;
+}
+
+export interface CodexPrivateProjection {
+  parameters: CodexPrivateProjectionParameter[];
+  actions: CodexPrivateActionCandidate[];
+  structurally_eligible: boolean;
+  unsupported_material: boolean;
+  secret_material_detected: boolean;
+  malformed_records: number;
+  pending_items: number;
+  diagnostic: CodexPrivateProjectionDiagnostic;
+}
+
+export interface CodexPrivateRunOptions extends CodexRunOptions {
+  parameters?: CodexParameterInput[];
+}
+
+export interface CodexCaptureWithPrivateProjection {
+  capture: CodexCaptureResult;
+  private_projection: CodexPrivateProjection;
+}
+
 export type RunCodexCapture = (options: CodexRunOptions) => Promise<CodexCaptureResult>;
+export type RunCodexCaptureWithPrivateProjection = (
+  options: CodexPrivateRunOptions,
+) => Promise<CodexCaptureWithPrivateProjection>;

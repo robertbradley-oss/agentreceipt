@@ -1,13 +1,27 @@
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstat, open, realpath } from "node:fs/promises";
-import { basename, isAbsolute, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 
 import { CliError } from "./errors.js";
 import type { RepositoryFileChange, RepositorySnapshot } from "./types.js";
 
 const execFileAsync = promisify(execFile);
+
+export function controlledGitEnvironment(environment: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const controlled: NodeJS.ProcessEnv = {
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_NO_LAZY_FETCH: "1",
+  };
+  for (const name of [
+    "PATH", "Path", "PATHEXT", "SystemRoot", "COMSPEC", "TEMP", "TMP", "HOME",
+    "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "LANG", "LC_ALL",
+  ]) {
+    if (environment[name] !== undefined) controlled[name] = environment[name];
+  }
+  return controlled;
+}
 
 async function runGitRaw(cwd: string, args: string[]): Promise<string> {
   const gitExecutable = process.env.AGENTRECEIPT_GIT_PATH ?? "git";
@@ -17,6 +31,7 @@ async function runGitRaw(cwd: string, args: string[]): Promise<string> {
       cwd,
       encoding: "utf8",
       windowsHide: true,
+      env: controlledGitEnvironment(),
     });
     return stdout;
   } catch {
@@ -103,6 +118,18 @@ async function hashWorkingTreeFile(root: string, repositoryPath: string): Promis
   const safePath = safeRepositoryPath(repositoryPath);
   const rootRealPath = await realpath(root);
   const candidatePath = resolve(rootRealPath, safePath);
+  const relativeParent = relative(rootRealPath, dirname(candidatePath));
+  let current = rootRealPath;
+  for (const part of relativeParent.split(sep).filter(Boolean)) {
+    current = resolve(current, part);
+    const directoryStats = await lstat(current);
+    const directoryRealPath = await realpath(current);
+    if (
+      directoryStats.isSymbolicLink()
+      || !directoryStats.isDirectory()
+      || !pathIsWithin(rootRealPath, directoryRealPath)
+    ) throw new CliError("A changed file could not be hashed safely.");
+  }
   const candidateStats = await lstat(candidatePath);
   const candidateRealPath = await realpath(candidatePath);
 
@@ -132,6 +159,42 @@ async function hashWorkingTreeFile(root: string, repositoryPath: string): Promis
   }
 }
 
+export async function hashRepositoryFile(
+  root: string,
+  repositoryPath: string,
+): Promise<`sha256:${string}`> {
+  return hashWorkingTreeFile(root, repositoryPath);
+}
+
+export async function isTrackedRepositoryFile(root: string, repositoryPath: string): Promise<boolean> {
+  const safePath = safeRepositoryPath(repositoryPath);
+  try {
+    return await runGitRaw(root, ["ls-files", "--error-unmatch", "-z", "--", safePath]) === `${safePath}\0`;
+  } catch {
+    return false;
+  }
+}
+
+export async function readGitExecutableVersion(root: string): Promise<string> {
+  const gitExecutable = process.env.AGENTRECEIPT_GIT_PATH ?? "git";
+  try {
+    const { stdout } = await execFileAsync(gitExecutable, ["--version"], {
+      cwd: root,
+      encoding: "utf8",
+      windowsHide: true,
+      maxBuffer: 4096,
+      env: controlledGitEnvironment(),
+    });
+    const version = stdout.trim();
+    if (!/^git version [0-9A-Za-z.+() -]{1,80}$/.test(version)) {
+      throw new Error("unsafe version");
+    }
+    return version;
+  } catch {
+    throw new CliError("Could not fingerprint the required executable safely.");
+  }
+}
+
 async function hashGitBlob(root: string, commitSha: string, repositoryPath: string): Promise<`sha256:${string}`> {
   const safePath = safeRepositoryPath(repositoryPath);
   const record = await runGitRaw(root, ["ls-tree", "-z", commitSha, "--", safePath]);
@@ -151,6 +214,7 @@ async function hashGitBlob(root: string, commitSha: string, repositoryPath: stri
     cwd: root,
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
+    env: controlledGitEnvironment(),
   });
   const hash = createHash("sha256");
   child.stdout.on("data", (chunk: Buffer) => hash.update(chunk));

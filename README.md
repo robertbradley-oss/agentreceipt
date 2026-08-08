@@ -37,6 +37,19 @@ The workspace CLI can be run after building:
 node packages/cli/dist/src/bin.js --help
 ```
 
+### Component-level runback
+
+The `@agentreceipt/runback` package implements task-agnostic reuse for observed tool work. It stores normalized functional components and evidence receipts instead of whole historical runs, splits a new structured intent into needs, and returns a policy-checked optimized rail. Components from unrelated tasks compete on capability, artifact fit, reliability, evidence diversity, freshness, and scope fit; prompt similarity is deliberately not part of the score.
+
+`agentreceipt learn` now releases the eligible capsule's individual components into an immutable, ignored local release. To ask for a rail, provide a bounded structured request:
+
+```bash
+node packages/cli/dist/src/bin.js runback runback-request.json \
+  --param INPUT_FILE=input.txt
+```
+
+The CLI searches all private local releases, but prints neither parameter values nor private trace content. Runback only plans covered steps: it never executes tools or grants execution authority, and the CLI excludes mutating components. See the [component runback contract](docs/component-runback-contract-v0.1.md).
+
 ## Capture a real Codex run
 
 The `codex` command requires a Git repository with at least one commit and a clean worktree. This lets AgentReceipt distinguish changes made during the wrapped run from pre-existing work.

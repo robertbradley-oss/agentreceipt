@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"<fixture-thread-id>"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"<fixture-command-id>","type":"command_execution","command":"git hash-object --no-filters input.txt","status":"in_progress"}}
+{"type":"item.completed","item":{"id":"<fixture-command-id>","type":"command_execution","command":"git hash-object --no-filters input.txt","aggregated_output":"<discarded>","exit_code":0,"status":"completed"}}
+{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":2}}
