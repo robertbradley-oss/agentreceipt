@@ -5,6 +5,8 @@ import type {
   CodexRunOptions,
 } from "@agentreceipt/codex-adapter";
 
+import type { SafeCaptureDiagnosticClassification } from "./safe-capture-diagnostic.js";
+
 export interface RepositoryFileChange {
   path: string;
   previousPath?: string;
@@ -64,4 +66,7 @@ export interface CliDependencies {
     options: CodexPrivateRunOptions,
   ) => Promise<CodexCaptureWithPrivateProjection>;
   runVerification: (command: string, cwd: string, now?: () => Date) => Promise<VerificationResult>;
+  onSafeCaptureDiagnostic?: (
+    classification: SafeCaptureDiagnosticClassification,
+  ) => void | Promise<void>;
 }

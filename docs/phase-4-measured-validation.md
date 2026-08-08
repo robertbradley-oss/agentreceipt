@@ -1,8 +1,8 @@
 # Phase 4 Measured Validation
 
-Status: Incomplete; both separately approved measured-validation attempts failed during source capture. The later privacy-safe event-shape diagnostic completed and narrowed the ineligibility to an embedded allowlisted command plus unsupported item material, but it did not authorize a grammar change, replay, comparison retry, or benefit claim.
+Status: Incomplete; three separately approved measured-validation attempts failed during source capture. The July privacy-safe event-shape diagnostic narrowed that observed ineligibility to an embedded allowlisted command plus unsupported item material, while the August revalidation again returned only the bounded `capsule_ineligible` classification. Neither result authorizes a grammar change, replay, comparison retry, or benefit claim.
 
-Observed: 2026-07-22 and 2026-07-23, America/New_York
+Observed: 2026-07-22, 2026-07-23, and 2026-08-07, America/New_York
 
 ## Bounded outcome
 
@@ -36,13 +36,32 @@ The separately approved privacy-safe event-shape diagnostic then completed on 20
 
 This directly establishes that the exact allowlisted command text appeared only inside a different command string and that at least one unsupported item category was observed. It does not reveal the wrapper, item contents, raw event, or whether either could be accepted safely. The unchanged grammar therefore rejected the command, produced no action, and left the declared parameter unused. The public capture's `partial` status is consistent with unsupported observed material, but the enum-only result is not sufficient to prescribe normalization or an ignore rule. No retry, learning, replay, measurement, or grammar change followed.
 
+## August 2026 bounded revalidation
+
+On 2026-08-07, one new live attempt was explicitly approved. The merged `main` branch first passed `pnpm check`, all 20 Codex-adapter tests, all 10 targeted Observe–Learn–Replay regression and security tests, and the Phase 4 harness syntax check. A zero-attempt diagnostic initially found the obsolete npm-global executable path unavailable; this consumed no live attempt. An isolated temporary installation of Codex CLI `0.147.0` then passed version, existing-login, JSON, ephemeral, sandbox, and hermetic isolation-option preflights without creating or copying an API key.
+
+The unchanged repair harness made exactly one live AgentReceipt-owned Codex attempt and returned:
+
+- stage: `live_capture`;
+- code: `capsule_ineligible`;
+- live attempts: `1`;
+- comparison available: `false`.
+
+The attempt did not reach learning, dry run, replay, verification, digest-chain validation, or measurement. The safe classification establishes only that the current observed run did not satisfy capsule eligibility; it does not establish that the July event-shape classification remained the cause. No retry or eligibility weakening followed. The harness removed its disposable repository on failure, the temporary CLI installation was removed, the real workspace gained no `.agentreceipt` artifacts, and tracked repository state remained unchanged.
+
+## Same-attempt diagnostic hardening
+
+After the August allowance was consumed, the CLI gained an optional programmatic callback that reduces its already-private projection diagnostic to one fixed allowlisted classification. The callback is invoked only around capsule creation or eligibility rejection, carries no raw values, is absent from the default CLI, writes no artifact, and cannot change execution if callback code fails. The Phase 4 harness now receives that category from the same AgentReceipt CLI attempt over a validated Node IPC message while retaining its existing child-process timeout and exact standard-error classifier.
+
+This hardening was implemented and tested offline. No additional Codex/model attempt was made, so it does not retroactively identify the August failure and does not establish that a future attempt will create a capsule. A future separately authorized one-attempt validation can now report `capture_diagnostic` alongside the fixed `capsule_ineligible` code without making a second diagnostic model call.
+
 ## Completion criteria
 
 | Criterion | Direct evidence | Outcome |
 |---|---|---|
-| Make the approved live AgentReceipt-owned Codex attempts and create an eligible capsule | Original command on 2026-07-22 returned `agentreceipt_command_failed`; separately approved replacement on 2026-07-23 returned `capsule_ineligible`; each reported `live_attempts: 1` | Incomplete. Neither attempt established eligible source capture or capsule creation. |
-| Learn, dry-run, replay, verify, and emit a fresh receipt | Both live harness results stopped at `live_capture` | Not reached. |
-| Validate the public source-to-recipe-to-replay digest chain | Live harness result reported `comparison_available: false` | Not reached. |
+| Make the approved live AgentReceipt-owned Codex attempts and create an eligible capsule | Original command on 2026-07-22 returned `agentreceipt_command_failed`; separately approved attempts on 2026-07-23 and 2026-08-07 returned `capsule_ineligible`; each reported `live_attempts: 1` | Incomplete. None of the three attempts established eligible source capture or capsule creation. |
+| Learn, dry-run, replay, verify, and emit a fresh receipt | All three live harness results stopped at `live_capture` | Not reached. |
+| Validate the public source-to-recipe-to-replay digest chain | Every live harness result reported `comparison_available: false` | Not reached. |
 | Report comparable wall time and directly observable source usage without inventing replay tokens | No completed source or replay measurement was available | Unavailable; no comparison or benefit claim. |
 | Give a bounded decision about later capability | The declared read-only loop was not measured live | Stop at the Phase 4 boundary. No later capability is proposed or approved from this result. |
 | Preserve existing behavior, protected artifacts, scope, and provenance | Approved syntax, targeted tests, formatting check, protected hashes, raw reads, and workspace-status inspection | Verified for the bounded local checks; Phase 4 still cannot close while the live criterion is incomplete. |
@@ -55,7 +74,7 @@ This directly establishes that the exact allowlisted command text appeared only 
 | Preserve strict grammar and the public sanitizer | `node --test packages/codex-adapter/test/adapter-security.test.mjs` on 2026-07-23 | Verified; all 5 reported security tests passed, including shell-wrapper and unsafe-command rejection. |
 | Preserve the existing bounded observe, learn, and replay behavior | Exact two-file CLI test command on 2026-07-23 | Verified; all 10 reported tests passed. |
 | Retain only an approved safe nested failure classification | Exact replacement harness result on 2026-07-23 | Verified for the observed failure: only `capsule_ineligible` was emitted; no raw nested standard error appeared. |
-| Make at most one replacement attempt and complete the comparison only on success | Exact replacement harness result on 2026-07-23; exit 1 with `live_attempts: 1` | Attempt limit verified; comparison remains incomplete and no retry is authorized. |
+| Make at most one attempt per explicit authorization and complete the comparison only on success | Exact harness results on 2026-07-23 and 2026-08-07; each exited 1 with `live_attempts: 1` | Attempt limits verified; comparison remains incomplete and no retry is authorized from either result. |
 
 ## Non-model diagnostic criteria
 
@@ -124,11 +143,31 @@ Approved privacy-safe event-shape command evidence on 2026-07-23:
 | `git diff --check` | Exit 0; only line-ending warnings for protected pre-existing files were emitted. |
 | Protected Phase 1 through Phase 3 hash command | Exit 0; all five locked Git blob hashes matched. |
 
+Approved bounded revalidation evidence on 2026-08-07:
+
+| Command or check | Observed outcome |
+|---|---|
+| `pnpm check` | Exit 0; all workspace type checks passed. |
+| `pnpm --filter @agentreceipt/codex-adapter test` | Exit 0; all 20 reported adapter and privacy tests passed. |
+| `node --test packages/cli/test/observe-learn-replay.test.mjs packages/cli/test/observe-learn-replay-security.test.mjs` | Exit 0; all 10 reported loop and security tests passed. |
+| `node --check packages/cli/test/phase-4-measured-validation.mjs` | Exit 0. |
+| `node packages/cli/test/phase-4-measured-validation.mjs --diagnose-capture --max-live-runs=0` with isolated Codex CLI `0.147.0` | Exit 0; version, existing login, JSON, ephemeral, and sandbox checks passed; `live_attempts: 0`. |
+| `node packages/cli/test/phase-4-measured-validation.mjs --repair-live-codex --max-live-runs=1` with isolated Codex CLI `0.147.0` | Exit 1; safe aggregate stopped at `live_capture` with `capsule_ineligible`, `live_attempts: 1`, and `comparison_available: false`. |
+| Post-run cleanup and workspace inspection | No Phase 4 disposable directory, temporary CLI, or workspace `.agentreceipt` artifact remained; tracked workspace state was unchanged. |
+
+Offline same-attempt diagnostic evidence added after the bounded revalidation:
+
+| Command or check | Observed outcome |
+|---|---|
+| `node --test packages/cli/test/safe-capture-diagnostic.test.mjs` | Exit 0; enum classification, invalid-shape collapse, callback isolation, fixed failure behavior, and private canary non-disclosure passed. |
+| `node --check packages/cli/test/phase-4-measured-validation.mjs` and helper syntax check | Exit 0; the updated harness and instrumented child were syntactically valid. |
+| Instrumented IPC self-check in repair preflight | Implemented as a zero-model preflight; it requires one exact fixed failure plus one allowlisted diagnostic message before any future live attempt. |
+
 ## Privacy and limitations
 
 - The report contains no prompt, message, reasoning, command output, private capsule or recipe content, raw Codex identifier, environment value, or personal absolute path.
 - The harness used one disposable local repository and was required to remove it on success or failure.
 - The bounded diagnostic rules out only executable access, local login readiness, and absence of the three originally required `codex exec` options at the time observed. The replacement preflight additionally established the presence of both approved isolation options.
 - The later enum-only diagnostic reveals only that the allowlisted text was embedded in a different command string and that unsupported item material existed. It does not reveal, retain, or establish the safety of the wrapper, item type contents, raw JSONL, or nested standard error.
-- The approved replacement attempt and the separate diagnostic attempt are both consumed. No further live attempt or retry is authorized.
+- The July replacement, July event-shape diagnostic, and August revalidation allowances are consumed. No further live attempt or retry is authorized by these results.
 - Public receipts remain evidence for their declared surface, not proof of complete observation, safety, correctness, truthfulness, or determinism.

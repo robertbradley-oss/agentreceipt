@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { validateReceipt } from "@agentreceipt/schema";
 import { runCodexCaptureWithPrivateProjection } from "@agentreceipt/codex-adapter";
+import { isSafeCaptureDiagnosticClassification } from "../dist/src/index.js";
 
 const LIVE_ARGUMENTS = new Set(["--live-codex", "--max-live-runs=1"]);
 const DIAGNOSTIC_ARGUMENTS = new Set(["--diagnose-capture", "--max-live-runs=0"]);
@@ -48,11 +49,15 @@ const FIXED_PROMPT = [
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const cliPath = resolve(testDirectory, "..", "dist", "src", "bin.js");
+const instrumentedCliPath = resolve(testDirectory, "support", "phase-4-instrumented-cli.mjs");
 
 class SafeFailure extends Error {
-  constructor(code) {
+  constructor(code, captureDiagnostic) {
     super(code);
     this.code = code;
+    this.captureDiagnostic = isSafeCaptureDiagnosticClassification(captureDiagnostic)
+      ? captureDiagnostic
+      : undefined;
   }
 }
 
@@ -104,6 +109,25 @@ function verifyAgentReceiptStderrClassifier() {
   }
 }
 
+async function verifySafeDiagnosticIpc() {
+  const result = await runProcess(
+    process.execPath,
+    [instrumentedCliPath, "--self-test-safe-diagnostic-ipc"],
+    {
+      collectStdout: true,
+      classifyAgentReceiptStderr: true,
+      captureSafeDiagnostic: true,
+    },
+  );
+  if (
+    result.exitCode !== 1
+    || result.output !== ""
+    || result.outputExceeded
+    || result.stderrClassification !== "capsule_ineligible"
+    || result.captureDiagnostic !== "allowlisted_command_embedded"
+  ) throw new SafeFailure("safe_diagnostic_ipc_invalid");
+}
+
 function runProcess(executable, argumentsList, options = {}) {
   return new Promise((resolveProcess) => {
     const stderrClassifier = options.classifyAgentReceiptStderr
@@ -112,10 +136,17 @@ function runProcess(executable, argumentsList, options = {}) {
     const child = spawn(executable, argumentsList, {
       cwd: options.cwd,
       windowsHide: true,
-      stdio: ["ignore", "pipe", stderrClassifier ? "pipe" : "ignore"],
+      stdio: [
+        "ignore",
+        "pipe",
+        stderrClassifier ? "pipe" : "ignore",
+        ...(options.captureSafeDiagnostic ? ["ipc"] : []),
+      ],
     });
     let stdout = Buffer.alloc(0);
     let outputExceeded = false;
+    let captureDiagnostic;
+    let captureDiagnosticInvalid = false;
     let settled = false;
     const timeout = setTimeout(() => {
       child.kill();
@@ -133,6 +164,25 @@ function runProcess(executable, argumentsList, options = {}) {
       }
     });
     child.stderr?.on("data", (chunk) => stderrClassifier?.ingest(chunk));
+    if (options.captureSafeDiagnostic) {
+      child.on("message", (message) => {
+        const candidate = message
+          && typeof message === "object"
+          && !Array.isArray(message)
+          && message.kind === "safe_capture_diagnostic"
+          ? message.classification
+          : undefined;
+        if (
+          !isSafeCaptureDiagnosticClassification(candidate)
+          || captureDiagnostic !== undefined
+        ) {
+          captureDiagnosticInvalid = true;
+          captureDiagnostic = undefined;
+          return;
+        }
+        captureDiagnostic = candidate;
+      });
+    }
 
     const finish = (result) => {
       if (settled) return;
@@ -145,12 +195,14 @@ function runProcess(executable, argumentsList, options = {}) {
       output: "",
       outputExceeded: false,
       stderrClassification: stderrClassifier?.finish(),
+      captureDiagnostic: captureDiagnosticInvalid ? "invalid_private_diagnostic" : captureDiagnostic,
     }));
     child.once("close", (code) => finish({
       exitCode: code ?? 1,
       output: options.collectStdout && !outputExceeded ? stdout.toString("utf8") : "",
       outputExceeded,
       stderrClassification: stderrClassifier?.finish(),
+      captureDiagnostic: captureDiagnosticInvalid ? "invalid_private_diagnostic" : captureDiagnostic,
     }));
   });
 }
@@ -158,7 +210,10 @@ function runProcess(executable, argumentsList, options = {}) {
 async function requireSuccess(executable, argumentsList, options = {}) {
   const result = await runProcess(executable, argumentsList, options);
   if (result.exitCode !== 0 || result.outputExceeded) {
-    throw new SafeFailure(result.stderrClassification ?? options.failureCode ?? "command_failed");
+    throw new SafeFailure(
+      result.stderrClassification ?? options.failureCode ?? "command_failed",
+      result.captureDiagnostic,
+    );
   }
   return result.output;
 }
@@ -176,6 +231,17 @@ async function runCli(repository, argumentsList, timeoutMs = 20_000) {
     cwd: repository,
     collectStdout: true,
     classifyAgentReceiptStderr: true,
+    timeoutMs,
+    failureCode: "agentreceipt_failure_unclassified",
+  });
+}
+
+async function runInstrumentedCli(repository, argumentsList, timeoutMs = 20_000) {
+  return requireSuccess(process.execPath, [instrumentedCliPath, ...argumentsList], {
+    cwd: repository,
+    collectStdout: true,
+    classifyAgentReceiptStderr: true,
+    captureSafeDiagnostic: true,
     timeoutMs,
     failureCode: "agentreceipt_failure_unclassified",
   });
@@ -482,6 +548,7 @@ async function main() {
     if (mode === "repair") {
       stage = "preflight";
       verifyAgentReceiptStderrClassifier();
+      await verifySafeDiagnosticIpc();
       await requireRepairPreflight();
     } else {
       await selectCodexExecutable();
@@ -509,7 +576,7 @@ async function main() {
     stage = "live_capture";
     liveAttempts += 1;
     const sourceStarted = performance.now();
-    const captureOutput = await runCli(repository, [
+    const captureOutput = await runInstrumentedCli(repository, [
       "codex",
       "--title", "Phase 4 harmless live baseline",
       "--description", "One bounded read-only Codex baseline for AgentReceipt measurement.",
@@ -605,6 +672,7 @@ async function main() {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } catch (error) {
     const code = error instanceof SafeFailure ? error.code : "internal_error";
+    const captureDiagnostic = error instanceof SafeFailure ? error.captureDiagnostic : undefined;
     process.stdout.write(`${JSON.stringify({
       schema: "agentreceipt-phase4-measurement/v1",
       status: "failed",
@@ -612,6 +680,7 @@ async function main() {
       code,
       live_attempts: liveAttempts,
       comparison_available: false,
+      ...(captureDiagnostic ? { capture_diagnostic: captureDiagnostic } : {}),
     }, null, 2)}\n`);
     process.exitCode = 1;
   } finally {
