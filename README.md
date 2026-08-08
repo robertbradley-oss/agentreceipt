@@ -1,6 +1,6 @@
 # AgentReceipt
 
-AgentReceipt creates a privacy-safe record of what an AI coding agent did: tool and command lifecycle events, changed file paths, verification results, and Git state. It deliberately leaves out prompts, messages, reasoning, source code, command text, and command output.
+AgentReceipt creates a privacy-safe record of what an AI coding agent did: tool and command lifecycle events, changed file paths, verification results, and Git state. Eligible local observations can also become reviewable read-only recipes or component-level preflight plans. Public receipts deliberately leave out prompts, messages, reasoning, source code, command text, and command output.
 
 The project is pre-alpha. Receipts are useful evidence, not proof that every action was observed or every claim is true.
 
@@ -36,6 +36,39 @@ The workspace CLI can be run after building:
 ```bash
 node packages/cli/dist/src/bin.js --help
 ```
+
+## Observe, learn, replay, and runback
+
+AgentReceipt has two local reuse paths. **Replay** preserves one eligible observed workflow as a canonical, deterministic read-only recipe. **Runback** decomposes eligible evidence into functional components—observe, transform, act, verify, and recover—and assembles a policy-checked rail for a new structured intent.
+
+The end-to-end workflow is:
+
+```bash
+# 1. Observe an explicitly opted-in, eligible local run.
+node packages/cli/dist/src/bin.js codex \
+  --title "Inspect one file" \
+  --prompt "Inspect input.txt without modifying it." \
+  --capsule \
+  --verify-file input.txt \
+  --param INPUT_FILE=input.txt
+
+# 2. Learn from the private capsule path printed by the capture command.
+node packages/cli/dist/src/bin.js learn \
+  .agentreceipt/private/capsules/<capsule-id>.json
+
+# 3. Preflight, then execute, the generated read-only recipe.
+node packages/cli/dist/src/bin.js replay \
+  .agentreceipt/recipes/<recipe-id>.json \
+  --dry-run \
+  --param INPUT_FILE=input.txt
+node packages/cli/dist/src/bin.js replay \
+  .agentreceipt/recipes/<recipe-id>.json \
+  --param INPUT_FILE=input.txt
+```
+
+Private capsules, recipes, and component releases stay ignored and untracked. Learning does not call a model, publish data, or modify the source receipt. Replay validates the recipe, parameters, repository state, and read-only boundary before execution, then writes a fresh privacy-safe receipt. See the [Observe–Learn–Replay contract](docs/observe-learn-replay-contract-v0.1.md).
+
+The automated fixture exercises this full loop. A live Codex run produces a capsule only when its observed event shapes meet the strict eligibility rules; [measured live validation](docs/phase-4-measured-validation.md) has not yet completed an eligible capsule-through-replay run. The project therefore makes no measured speed, token-savings, or general-determinism claim.
 
 ### Component-level runback
 
@@ -168,6 +201,6 @@ Every simulated receipt is labeled `SIMULATED RECEIPT — NOT AGENT OBSERVATION`
 
 ## Project status
 
-Implemented in v0.1: the product and privacy contracts, JSON Schema and validator, simulator, privacy-safe Codex JSONL adapter, draft/finalized lifecycle, GitHub-event finalization, per-file before/after digests, and local GitHub Action validation.
+Implemented in v0.1: the product and privacy contracts, JSON Schema and validator, simulator, privacy-safe Codex JSONL adapter, draft/finalized lifecycle, GitHub-event finalization, per-file before/after digests, local GitHub Action validation, the fixture-covered private Observe–Learn–Replay loop, canonical read-only recipes, digest-bound replay receipts, and component-level runback planning.
 
 Future work may add signatures or GitHub artifact attestations. Those could establish which workflow produced finalized bytes and whether they changed afterward, but would still not prove that every statement inside a receipt is true.
