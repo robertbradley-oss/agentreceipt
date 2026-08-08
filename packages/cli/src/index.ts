@@ -1,15 +1,29 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 
-import { runCodexCapture } from "@agentreceipt/codex-adapter";
+import {
+  runCodexCapture,
+  runCodexCaptureWithPrivateProjection,
+  type CodexParameterInput,
+} from "@agentreceipt/codex-adapter";
 import { assertReceipt, type AgentReceipt } from "@agentreceipt/schema";
 
-import { parseArguments, rejectUnknownOptions, stringOption } from "./args.js";
+import { parseArguments, rejectUnknownOptions, stringOption, stringOptions } from "./args.js";
 import { createCodexReceipt } from "./codex.js";
 import { CliError } from "./errors.js";
 import { FinalizationError, finalizeReceipt, shouldWarnForAcceptedPartial } from "./finalize.js";
 import { formatReceipt } from "./format.js";
-import { readRepository, readRepositoryChanges } from "./git.js";
+import {
+  hashRepositoryFile,
+  isTrackedRepositoryFile,
+  readGitExecutableVersion,
+  readRepository,
+  readRepositoryChanges,
+} from "./git.js";
+import { listPrivateJson, readPrivateJson, sourceReceiptDigestExists, writePrivateJson } from "./private-artifacts.js";
+import { createPrivateCapsule, createRecipe, RecipeError, validatePrivateCapsule } from "./recipe.js";
+import { replayRecipe } from "./replay.js";
+import { createRunbackRelease, planLocalRunback } from "./runback.js";
 import { createSimulatedReceipt } from "./simulation.js";
 import {
   createActiveSession,
@@ -30,6 +44,10 @@ Usage:
   agentreceipt start --title <title> [--description <text>]
   agentreceipt finish [--result pass|fail] [--file <relative-path>] [--tests <count>]
   agentreceipt codex --title <title> --prompt <text> [--description <text>] [--sandbox read-only|workspace-write] [--verify <command>]
+  agentreceipt codex --title <title> --prompt <text> --capsule --verify-file <path> [--param NAME=VALUE] [--secret-env NAME=SOURCE:TARGET]
+  agentreceipt learn <capsule-path>
+  agentreceipt replay <recipe-path> [--dry-run] [--param NAME=VALUE]
+  agentreceipt runback <request.json> [--param NAME=VALUE]
   agentreceipt finalize --input <draft.json> --output <finalized.json> [--allow-partial]
   agentreceipt inspect [receipt.json] [--json]
 
@@ -37,6 +55,9 @@ Commands:
   start    Begin a simulated recording in the current Git repository.
   finish   Generate and validate a simulated receipt, then archive the session.
   codex    Run one wrapped Codex exec JSONL session and create a privacy-safe receipt.
+  learn    Convert one eligible private capsule into a canonical local recipe.
+  replay   Preflight or execute one guarded deterministic read-only recipe.
+  runback  Build a component-level rail from all private local evidence releases.
   finalize Bind a committed draft receipt to the checked-out GitHub event head.
   inspect  Show the active session or the latest completed receipt.
 
@@ -54,12 +75,85 @@ function defaultDependencies(): CliDependencies {
     readRepository,
     readRepositoryChanges,
     runCodexCapture,
+    runCodexCaptureWithPrivateProjection,
     runVerification,
   };
 }
 
 function withDependencies(overrides: Partial<CliDependencies>): CliDependencies {
   return { ...defaultDependencies(), ...overrides };
+}
+
+const PARAMETER_NAME = /^[A-Z][A-Z0-9_]{0,63}$/;
+const SAFE_CAPTURE_FILE = /^(?!-)(?!(?:\.git|\.agentreceipt|\.agents|\.codex-scope)(?:\/|$))(?!~)(?![A-Za-z]:)(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+
+function booleanOption(parsed: ReturnType<typeof parseArguments>, name: string): boolean {
+  const value = parsed.options.get(name);
+  if (value === undefined) return false;
+  if (value !== true) throw new CliError(`--${name} does not accept a value.`, 2);
+  return true;
+}
+
+function publicParameterInputs(values: string[]): CodexParameterInput[] {
+  const seen = new Set<string>();
+  return values.map((value) => {
+    const equals = value.indexOf("=");
+    const name = value.slice(0, equals);
+    const parameterValue = value.slice(equals + 1);
+    if (
+      equals < 1 || !PARAMETER_NAME.test(name) || !parameterValue
+      || parameterValue.length > 1024 || seen.has(name)
+    ) throw new CliError("Invalid public parameter declaration.", 2);
+    seen.add(name);
+    return { name, sensitivity: "public" as const, value: parameterValue };
+  });
+}
+
+function secretParameterInputs(
+  values: string[],
+  environment: NodeJS.ProcessEnv,
+  occupied: Set<string>,
+): CodexParameterInput[] {
+  const sourceNames = new Set<string>();
+  const targetNames = new Set<string>();
+  return values.map((value) => {
+    const equals = value.indexOf("=");
+    const name = value.slice(0, equals);
+    const [sourceEnvironment, targetEnvironment, extra] = value.slice(equals + 1).split(":");
+    const secretValue = sourceEnvironment ? environment[sourceEnvironment] : undefined;
+    if (
+      equals < 1 || !PARAMETER_NAME.test(name) || occupied.has(name)
+      || !sourceEnvironment || !targetEnvironment || extra !== undefined
+      || !PARAMETER_NAME.test(sourceEnvironment) || !PARAMETER_NAME.test(targetEnvironment)
+      || sourceNames.has(sourceEnvironment) || targetNames.has(targetEnvironment)
+      || !secretValue
+      || (sourceEnvironment !== targetEnvironment && Object.hasOwn(environment, targetEnvironment))
+    ) throw new CliError("Invalid secret environment declaration.", 2);
+    occupied.add(name);
+    sourceNames.add(sourceEnvironment);
+    targetNames.add(targetEnvironment);
+    return {
+      name,
+      sensitivity: "secret" as const,
+      value: secretValue,
+      source_environment: sourceEnvironment,
+      target_environment: targetEnvironment,
+    };
+  });
+}
+
+function replayParameters(values: string[]): Map<string, string> {
+  const parameters = new Map<string, string>();
+  for (const value of values) {
+    const equals = value.indexOf("=");
+    const name = value.slice(0, equals);
+    const parameterValue = value.slice(equals + 1);
+    if (equals < 1 || !PARAMETER_NAME.test(name) || !parameterValue || parameters.has(name)) {
+      throw new CliError("Invalid replay parameter.", 2);
+    }
+    parameters.set(name, parameterValue);
+  }
+  return parameters;
 }
 
 function requireNoPositionals(positionals: string[], command: string): void {
@@ -158,13 +252,25 @@ async function codexCommand(
   parsed: ReturnType<typeof parseArguments>,
   dependencies: CliDependencies,
 ): Promise<string> {
-  rejectUnknownOptions(parsed, ["title", "description", "prompt", "sandbox", "verify"]);
+  rejectUnknownOptions(parsed, [
+    "title", "description", "prompt", "sandbox", "verify", "capsule", "verify-file", "param", "secret-env",
+  ]);
   requireNoPositionals(parsed.positionals, "codex");
   const title = stringOption(parsed, "title", { required: true })!;
   const description = stringOption(parsed, "description", { fallback: title })!;
   const prompt = stringOption(parsed, "prompt", { required: true })!;
   const sandbox = stringOption(parsed, "sandbox", { fallback: "read-only" })!;
   const verificationCommand = stringOption(parsed, "verify");
+  const capsuleEnabled = booleanOption(parsed, "capsule");
+  const verificationFile = stringOption(parsed, "verify-file");
+  const publicInputs = publicParameterInputs(stringOptions(parsed, "param"));
+  const parameterNames = new Set(publicInputs.map((parameter) => parameter.name));
+  const secretInputs = secretParameterInputs(
+    stringOptions(parsed, "secret-env"),
+    dependencies.environment,
+    parameterNames,
+  );
+  const parameterInputs = [...publicInputs, ...secretInputs];
 
   if (title.length > 160) {
     throw new CliError("--title must be 160 characters or fewer.", 2);
@@ -178,6 +284,15 @@ async function codexCommand(
   if (sandbox !== "read-only" && sandbox !== "workspace-write") {
     throw new CliError("--sandbox must be either read-only or workspace-write.", 2);
   }
+  if (capsuleEnabled && (
+    sandbox !== "read-only" || !verificationFile || verificationCommand
+    || !SAFE_CAPTURE_FILE.test(verificationFile)
+  )) {
+    throw new CliError("Private capsule capture requires read-only sandboxing and a safe --verify-file without --verify.", 2);
+  }
+  if (!capsuleEnabled && (verificationFile || parameterInputs.length > 0)) {
+    throw new CliError("Capsule parameters and --verify-file require --capsule.", 2);
+  }
 
   const repositoryBefore = await dependencies.readRepository(dependencies.cwd);
   if (repositoryBefore.isClean === false) {
@@ -187,15 +302,36 @@ async function codexCommand(
   }
 
   const startedAt = dependencies.now();
-  const capture = await dependencies.runCodexCapture({
+  const privateRun = capsuleEnabled
+    ? await dependencies.runCodexCaptureWithPrivateProjection({
+        cwd: repositoryBefore.root,
+        prompt,
+        sandbox: "read-only",
+        now: dependencies.now,
+        parameters: parameterInputs,
+      })
+    : undefined;
+  const capture = privateRun?.capture ?? await dependencies.runCodexCapture({
     cwd: repositoryBefore.root,
     prompt,
     sandbox,
     now: dependencies.now,
   });
-  const verification = verificationCommand
+  let verification = verificationCommand
     ? await dependencies.runVerification(verificationCommand, repositoryBefore.root, dependencies.now)
     : undefined;
+  let verificationFileDigest: `sha256:${string}` | undefined;
+  if (verificationFile) {
+    const verificationStarted = dependencies.now();
+    verificationFileDigest = await hashRepositoryFile(repositoryBefore.root, verificationFile);
+    const verificationEnded = dependencies.now();
+    verification = {
+      startedAt: verificationStarted.toISOString(),
+      endedAt: verificationEnded.toISOString(),
+      durationMs: Math.max(0, verificationEnded.getTime() - verificationStarted.getTime()),
+      exitCode: 0,
+    };
+  }
 
   const gitLimitations: string[] = [];
   let repositoryAfter = repositoryBefore;
@@ -229,13 +365,157 @@ async function codexCommand(
     additionalLimitations: gitLimitations,
   });
   const receiptPath = await writeCompletedReceipt(repositoryBefore.root, receiptId, receipt);
+  if (capsuleEnabled && gitLimitations.length > 0) throw new RecipeError("capsule_ineligible");
+  let capsulePath: string | undefined;
+  if (capsuleEnabled && privateRun && verification && verificationFile && verificationFileDigest) {
+    const fileDigests = new Map<string, `sha256:${string}`>();
+    for (const action of privateRun.private_projection.actions) {
+      for (const filePath of action.file_paths) {
+        if (!fileDigests.has(filePath)) {
+          if (!await isTrackedRepositoryFile(repositoryBefore.root, filePath)) {
+            throw new RecipeError("capsule_ineligible");
+          }
+          fileDigests.set(filePath, await hashRepositoryFile(repositoryBefore.root, filePath));
+        }
+      }
+    }
+    if (!await isTrackedRepositoryFile(repositoryBefore.root, verificationFile)) {
+      throw new RecipeError("capsule_ineligible");
+    }
+    const capsuleRepositoryAfter = await dependencies.readRepository(repositoryBefore.root).catch(() => {
+      throw new RecipeError("capsule_ineligible");
+    });
+    const capsuleId = dependencies.randomUUID();
+    const receiptDigest = (receipt as unknown as {
+      integrity: { content_digest: `sha256:${string}` };
+    }).integrity.content_digest;
+    const capsule = createPrivateCapsule({
+      capsuleId,
+      createdAt: endedAt,
+      elapsedMs: Math.max(0, endedAt.getTime() - startedAt.getTime()),
+      sourceReceiptContentDigest: receiptDigest,
+      repositoryBefore,
+      repositoryAfter: capsuleRepositoryAfter,
+      capture,
+      projection: privateRun.private_projection,
+      executableVersion: await readGitExecutableVersion(repositoryBefore.root),
+      fileDigests,
+      verification: {
+        ...verification,
+        path: verificationFile,
+        digest: verificationFileDigest,
+      },
+    });
+    capsulePath = `.agentreceipt/private/capsules/${capsuleId}.json`;
+    await writePrivateJson(repositoryBefore.root, capsulePath, "capsule", capsule);
+  }
   const view = receipt as unknown as { capture: { status: string } };
 
   return [
     "Captured a wrapped Codex AgentReceipt.",
     `Capture: ${view.capture.status.replaceAll("_", " ")}`,
     `Receipt: ${receiptPath}`,
+    ...(capsulePath ? [`Private capsule: ${capsulePath}`] : []),
     "Run `agentreceipt inspect` to view the evidence and limitations.",
+    "",
+  ].join("\n");
+}
+
+async function learnCommand(
+  parsed: ReturnType<typeof parseArguments>,
+  dependencies: CliDependencies,
+): Promise<string> {
+  rejectUnknownOptions(parsed, []);
+  if (parsed.positionals.length !== 1) throw new CliError("learn requires one capsule path.", 2);
+  const repository = await dependencies.readRepository(dependencies.cwd);
+  if (!repository.isClean) throw new CliError("Learning requires a clean Git worktree.");
+  const capsulePath = parsed.positionals[0]!;
+  const value = await readPrivateJson(repository.root, capsulePath, "capsule");
+  validatePrivateCapsule(value);
+  if (
+    value.repository.owner.toLowerCase() !== repository.owner.toLowerCase()
+    || value.repository.name.toLowerCase() !== repository.name.toLowerCase()
+  ) throw new CliError("Capsule repository binding does not match.");
+  if (!await sourceReceiptDigestExists(repository.root, value.source_receipt_content_digest, value.repository)) {
+    throw new CliError("Capsule source receipt linkage could not be verified.");
+  }
+  const recipeId = dependencies.randomUUID();
+  const recipe = createRecipe(value, recipeId, dependencies.now());
+  const recipePath = `.agentreceipt/recipes/${recipeId}.json`;
+  const release = createRunbackRelease(value, recipe);
+  const releasePath = `.agentreceipt/private/runback/releases/${recipeId}.json`;
+  await writePrivateJson(repository.root, releasePath, "runback_release", release);
+  await writePrivateJson(repository.root, recipePath, "recipe", recipe);
+  return [
+    "Learned one local AgentReceipt recipe.",
+    `Recipe: ${recipePath}`,
+    `Component release: ${releasePath}`,
+    "Review the recipe before replay.",
+    "",
+  ].join("\n");
+}
+
+async function runbackCommand(
+  parsed: ReturnType<typeof parseArguments>,
+  dependencies: CliDependencies,
+): Promise<string> {
+  rejectUnknownOptions(parsed, ["param"]);
+  if (parsed.positionals.length !== 1) throw new CliError("runback requires one request path.", 2);
+  const parameters = replayParameters(stringOptions(parsed, "param"));
+  const repository = await dependencies.readRepository(dependencies.cwd);
+  const result = await planLocalRunback({
+    root: repository.root,
+    requestPath: parsed.positionals[0]!,
+    parameters: Object.fromEntries(parameters),
+    now: dependencies.now,
+  });
+  const covered = result.plan.rail.length;
+  const total = covered + result.plan.gaps.length;
+  const steps = result.plan.rail.map((step) => [
+    `${step.position}. ${step.function}: need ${step.needId}`,
+    `   Tool: ${step.tool}; score: ${step.score.toFixed(4)}; parameters: ${Object.keys(step.parameters).sort().join(", ") || "none"}`,
+  ].join("\n"));
+  const gaps = result.plan.gaps.map((gap) => [
+    `Gap: ${gap.need.id} (${gap.reason})`,
+    ...(gap.missingParameters?.length ? [`   Missing parameters: ${gap.missingParameters.join(", ")}`] : []),
+  ].join("\n"));
+  return [
+    `Runback preflight: ${result.plan.status}`,
+    `Coverage: ${covered}/${total}`,
+    `Local component releases: ${result.releaseCount}`,
+    ...steps,
+    ...gaps,
+    "No tools were executed and no execution authority was granted.",
+    "",
+  ].join("\n");
+}
+
+async function replayCommand(
+  parsed: ReturnType<typeof parseArguments>,
+  dependencies: CliDependencies,
+): Promise<string> {
+  rejectUnknownOptions(parsed, ["dry-run", "param"]);
+  if (parsed.positionals.length !== 1) throw new CliError("replay requires one recipe path.", 2);
+  const result = await replayRecipe({
+    cwd: dependencies.cwd,
+    recipePath: parsed.positionals[0]!,
+    dryRun: booleanOption(parsed, "dry-run"),
+    parameters: replayParameters(stringOptions(parsed, "param")),
+    environment: dependencies.environment,
+    now: dependencies.now,
+    randomUUID: dependencies.randomUUID,
+  });
+  if (result.dryRun) {
+    return [
+      "Replay dry run passed without executing actions.",
+      `Read-only steps: ${result.stepCount}`,
+      `Parameters: ${result.parameterNames.length}`,
+      "",
+    ].join("\n");
+  }
+  return [
+    "Executed one guarded read-only AgentReceipt replay.",
+    `Receipt: ${result.receiptPath}`,
     "",
   ].join("\n");
 }
@@ -246,7 +526,7 @@ async function finalizeCommand(
 ): Promise<string> {
   let inputPath: string;
   let outputPath: string;
-  let allowPartialOption: string | true | undefined;
+  let allowPartialOption: string | true | Array<string | true> | undefined;
   try {
     rejectUnknownOptions(parsed, ["input", "output", "allow-partial"]);
     requireNoPositionals(parsed.positionals, "finalize");
@@ -347,6 +627,12 @@ export async function executeCli(
       return finishCommand(parsed, dependencies);
     case "codex":
       return codexCommand(parsed, dependencies);
+    case "learn":
+      return learnCommand(parsed, dependencies);
+    case "replay":
+      return replayCommand(parsed, dependencies);
+    case "runback":
+      return runbackCommand(parsed, dependencies);
     case "finalize":
       return finalizeCommand(parsed, dependencies);
     case "inspect":
@@ -361,6 +647,22 @@ export { FinalizationError, finalizeReceipt } from "./finalize.js";
 export type { FinalizationErrorCode, FinalizeReceiptOptions, FinalizeReceiptResult } from "./finalize.js";
 export { readRepository, readRepositoryChanges } from "./git.js";
 export { runVerification } from "./verification.js";
+export { replayRecipe, ReplayError } from "./replay.js";
+export { createRunbackRelease, planLocalRunback } from "./runback.js";
+export {
+  createPrivateCapsule,
+  createRecipe,
+  RecipeError,
+  validatePrivateCapsule,
+  validateRecipe,
+} from "./recipe.js";
+export {
+  PrivateArtifactError,
+  readPrivateJson,
+  listPrivateJson,
+  sourceReceiptDigestExists,
+  writePrivateJson,
+} from "./private-artifacts.js";
 export type {
   CliDependencies,
   RepositoryFileChange,

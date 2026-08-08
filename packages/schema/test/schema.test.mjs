@@ -172,6 +172,16 @@ test("a receipt cannot claim generic complete Codex capture", async () => {
   assert.ok(result.errors.some((error) => error.instancePath === "/capture/status"));
 });
 
+test("replay has one honest additive capture surface", async () => {
+  const replay = await loadJson(join(examplesDirectory, "valid", "replay.json"));
+  assert.equal(validateReceipt(replay).valid, true);
+  assert.equal(replay.capture.surface, "agentreceipt_recipe_replay");
+  assert.deepEqual(Object.keys(replay.extensions), ["dev.agentreceipt.recipe-replay"]);
+
+  replay.capture.surface = "codex_exec_jsonl_replay";
+  assert.equal(validateReceipt(replay).valid, false);
+});
+
 test("repository paths cannot be absolute or traverse upward", async () => {
   const receipt = await loadJson(join(examplesDirectory, "valid", "minimal.json"));
 

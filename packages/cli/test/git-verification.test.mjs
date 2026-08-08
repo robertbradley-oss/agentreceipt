@@ -80,7 +80,7 @@ async function createFinalizationRepository(options = {}) {
     capture: {
       adapter: "agentreceipt-test",
       source: "direct_observation",
-      surface: "codex_exec_jsonl",
+      surface: options.surface ?? "codex_exec_jsonl",
       status: options.captureStatus ?? "complete_for_declared_surface",
       capabilities: ["lifecycle", "files", "git"],
       observed_capabilities: ["lifecycle", "files", "git"],
@@ -128,6 +128,7 @@ async function createFinalizationRepository(options = {}) {
       tests: { passed: 0, failed: 0, skipped: 0 },
       checks: [],
     },
+    ...(options.extensions ? { extensions: options.extensions } : {}),
   };
   if (options.extraFile) {
     draft.files.push({
@@ -316,6 +317,35 @@ test("finalization binds pull request evidence and changes only allowlisted fiel
       delete value.integrity;
     }
     assert.deepEqual(unchangedFinalized, unchangedDraft);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("finalization preserves digest-only replay binding unchanged", async () => {
+  const extension = {
+    "dev.agentreceipt.recipe-replay": {
+      recipe_digest: "sha256:" + "a".repeat(64),
+      source_receipt_content_digest: "sha256:" + "b".repeat(64),
+      mode: "executed",
+    },
+  };
+  const fixture = await createFinalizationRepository({
+    surface: "agentreceipt_recipe_replay",
+    extensions: extension,
+  });
+  try {
+    await writeEvent(fixture, { before: fixture.captureStart });
+    const result = await finalizeReceipt({
+      cwd: fixture.root,
+      inputPath: fixture.inputPath,
+      outputPath: ".agentreceipt/finalized/replay.json",
+      allowPartial: false,
+      environment: fixture.environment("push"),
+    });
+    assert.deepEqual(result.receipt.extensions, extension);
+    assert.equal(result.receipt.capture.surface, "agentreceipt_recipe_replay");
+    assert.equal(result.receipt.integrity.content_digest, computeReceiptContentDigest(result.receipt));
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }

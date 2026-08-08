@@ -31,7 +31,12 @@ interface ReceiptView {
 export function formatReceipt(receipt: AgentReceipt): string {
   const view = receipt as unknown as ReceiptView;
   const simulated = view.capture.source === "simulated";
-  const heading = simulated
+  const replay = view.capture.surface === "agentreceipt_recipe_replay";
+  const heading = replay
+    ? view.capture.status === "complete_for_declared_surface"
+      ? "REPLAY RECEIPT - COMPLETE FOR DECLARED SURFACE"
+      : "FAILED REPLAY RECEIPT"
+    : simulated
     ? "SIMULATED RECEIPT — NOT AGENT OBSERVATION"
     : view.capture.status === "complete_for_declared_surface"
       ? "CODEX RECEIPT — COMPLETE FOR DECLARED SURFACE"

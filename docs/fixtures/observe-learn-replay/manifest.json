@@ -1,0 +1,24 @@
+{
+  "fixture_version": "0.1",
+  "stream": "codex-exec-read-only.jsonl",
+  "input": "input.txt",
+  "source": "deterministic local test executable emulating the documented codex exec --json stream",
+  "command": {
+    "executable": "git",
+    "arguments": ["hash-object", "--no-filters", "{{param.INPUT_FILE}}"],
+    "public_parameter": "INPUT_FILE"
+  },
+  "expected": {
+    "private_capsule": true,
+    "recipe": true,
+    "dry_run_executes_actions": false,
+    "actual_replay_is_read_only": true,
+    "verification": "file SHA-256 assertion",
+    "fresh_public_receipt": true
+  },
+  "limitations": [
+    "This fixture does not invoke a model or network service.",
+    "This fixture is not a live Codex performance or token measurement.",
+    "A passing fixture does not prove general safety, correctness, or deterministic replay."
+  ]
+}

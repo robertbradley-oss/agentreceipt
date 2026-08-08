@@ -16,10 +16,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/cli.test.mjs test/git-verification.test.mjs"
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@agentreceipt/codex-adapter": "workspace:*",
+    "@agentreceipt/runback": "workspace:*",
     "@agentreceipt/schema": "workspace:*"
   },
   "devDependencies": {
